@@ -8,7 +8,7 @@
     </PropertyGroup>
 
     <ItemGroup>
-      <PackageReference Include="Nodes.API.Http.Client" Version="0.2.19170" />
+      <PackageReference Include="Nodes.API.Http.Client" Version="0.2.19786" />
     </ItemGroup>
 
 </Project>

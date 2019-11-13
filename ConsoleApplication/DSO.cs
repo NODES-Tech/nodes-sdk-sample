@@ -5,99 +5,106 @@ using System.Threading.Tasks;
 using Nodes.API.Enums;
 using Nodes.API.Http.Client.Support;
 using Nodes.API.Models;
+using Nodes.API.Queries;
 using static System.Console;
 
 namespace ConsoleApplication
 {
-    public class DSO
+    public class DSO: UserRole
     {
+        public DSO(NodesClient client = null) : base(client)
+        {
+        }
+
         public async Task CreateGridNodes()
         {
             WriteLine("Setting up a gride node structure");
-
-            var client = new NodesClient(Program.APIUrl);
-
-            // ... authenticate 
-            WriteLine("authenticating... ");
-            var user = await client.Users.GetCurrentUser() ?? throw new Exception("Authentication: TBA");
-
-            var memberships = await client.Memberships.GetByTemplate(new Membership {UserId = user.Id});
-            var subscription = await client.Subscriptions.GetById(memberships.Items.First().SubscriptionId);
-            var organization = await client.Organizations.GetById(subscription.OwnerOrganizationId);
-
-            // Register topology: 
-            WriteLine("creating grid nodes... ");
-            var rootNode = await client.GridNodes.Create(new GridNode
+            var rootNode = await Client.GridNodes.Create(new GridNode
             {
                 Name = "DSORoot",
                 GridNodeType = "DSO Root Node",
-                OperatedByDsoOrganizationId = organization.Id,
+                OperatedByDsoOrganizationId = Organization.Id,
             });
 
-            var substation = await client.GridNodes.Create(new GridNode
+            var substation = await Client.GridNodes.AddLinkedGridNode(rootNode.Id, new GridNode
             {
                 Name = "Substation 1",
                 GridNodeType = "Substation",
-                OperatedByDsoOrganizationId = organization.Id,
-                ParentGridNodeId = rootNode.Id,
+                OperatedByDsoOrganizationId = Organization.Id,
+//                ParentGridNodeId = rootNode.Id,
             });
 
-            var secondarySubstation = await client.GridNodes.Create(new GridNode
+            var secondarySubstation = await Client.GridNodes.Create(new GridNode
             {
                 Name = "Secondary Substation 1",
                 GridNodeType = "Secondary Substation",
-                OperatedByDsoOrganizationId = organization.Id,
+                OperatedByDsoOrganizationId = Organization.Id,
                 ParentGridNodeId = substation.Id,
             });
 
-            // Create a power market: 
-            WriteLine("creating market... ");
-            var market = await client.Markets.Create(new Market
+            WriteLine("creating a flexibility POWER market... ");
+            var market = await Client.Markets.Create(new Market
             {
                 Currency = "NOK",
                 QuantityType = QuantityType.Power,
-                OwnerOrganizationId = organization.Id,
+                OwnerOrganizationId = Organization.Id,
             });
 
-            // Mark congested areas: 
-            WriteLine("marking congested nodes");
-            var gridLocation = await client.GridNodes.OpenGridNodeForTrade(substation.Id, market.Id);
+            WriteLine("marking congested nodes / Creating a grid location / open order books");
+            var gridLocation = await Client.GridNodes.OpenGridNodeForTrade(substation.Id, market.Id);
 
             WriteLine($"Done! Awaiting orders on grid node {substation.Id}, market id {market.Id}, grid location {gridLocation.Id}");
         }
 
         public async Task PlaceBuyOrder()
         {
-            var client = new NodesClient(Program.APIUrl);
-
             // Locate our grid location: 
-            var locations = await client.GridLocations.GetByTemplate();
+            var locations = await Client.GridLocations.GetByTemplate();
             var node = locations.Items.FirstOrDefault() ?? throw new Exception("No grid location available for trade");
 
-            // Find sell orders: 
-            var orders = await client.Orders.GetByTemplate(new Order
+            // Find sell orders - not required. We do this in this example in order 
+            // to find a suitable price and see what is available in the market. 
+            var orders = await Client.Orders.GetByTemplate(new Order
             {
                 GridNodeId = node.GridNodeId,
             });
 
             var sellOrder = orders.Items.FirstOrDefault() ?? throw new Exception($"No sell orders available on gride node {node.GridNodeId}");
 
-            var buyOrder = await client.Orders.Create(new Order
+            // In this case, we create a 
+            var buyOrder = await Client.Orders.Create(new Order
             {
+                MarketId = sellOrder.MarketId,
+                GridNodeId = node.GridNodeId,
                 Quantity = sellOrder.Quantity,
                 QuantityType = sellOrder.QuantityType,
                 Side = OrderSide.Buy,
+
+                // Here we specify a price, which is the upper limit of what we are willing to pay. 
+                // An alternative is to specify price type Market. In that case UnitPrice is not used
+                // and there will be no limit to the price we are willing to pay. 
                 UnitPrice = sellOrder.UnitPrice,
-                MarketId = sellOrder.MarketId,
+                PriceType = PriceType.Limit
             });
 
             WriteLine($"Buy order {buyOrder.Id} created successfully");
 
-            Thread.Sleep(5000);
-            var trades = await client.Trades.GetByTemplate(new Trade
+            Thread.Sleep(1000);
+
+            // Check if the order has been matched - that will cause 
+            // a trade to be created. 
+            var trades = await Client.Trades.GetByTemplate(new Trade
             {
                 GridNodeId = node.GridNodeId,
             });
+
+            var search = new TradeSearch
+            {
+                PeriodFrom = new DateTimeRange
+                {
+//                    StartOnOrAfter = ToDayAtMidnight(),
+                }
+            };
 
 
             WriteLine($"{trades.NumberOfHits} trades found. ");
@@ -105,6 +112,19 @@ namespace ConsoleApplication
             {
                 WriteLine(trade.Id);
             }
+        }
+
+        public async Task ApproveAssets()
+        {
+//            var unapprovedAssets = await Client.Assets.GetByTemplate();
+            var unapprovedAssets = await Client.Assets.GetByTemplate(new Asset {Status = "Pending"});
+            foreach (var asset in unapprovedAssets.Items)
+            {
+                asset.Status = "Active";
+                await Client.Assets.Update(asset);
+            }
+            
+            WriteLine($"{unapprovedAssets.Items.Count} assets were approved / activated");
         }
     }
 }

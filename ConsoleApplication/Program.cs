@@ -8,13 +8,13 @@ namespace ConsoleApplication
 {
     public static class Program
     {
-//        public const string APIUrl = "https://nodes-demo.azurewebsites.net/";
-        public const string APIUrl = "https://localhost:5001/";
+        public const string APIUrl = "https://nodes-demo.azurewebsites.net/";
+//        public const string APIUrl = "https://localhost:5001/";
 
         public static readonly (string n, Action a)[] Operations =
         {
             ("dso grid", () => new DSO().CreateGridNodes().GetAwaiter().GetResult()),
-            ("fsp assets", () => new FSP().AddAssets().GetAwaiter().GetResult()),
+            ("fsp assets", () => new FSP().CreateAssets().GetAwaiter().GetResult()),
             ("fsp order", () => new FSP().PlaceSellOrder().GetAwaiter().GetResult()),
             ("dso order", () => new DSO().PlaceBuyOrder().GetAwaiter().GetResult()),
         };
