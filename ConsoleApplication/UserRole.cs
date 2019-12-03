@@ -9,12 +9,12 @@ namespace ConsoleApplication
     public abstract class UserRole
     {
         protected readonly NodesClient Client;
-        protected Membership Membership;
-        protected User User;
-        protected Subscription Subscription;
-        protected Organization Organization;
+        protected Membership? Membership;
+        protected User? User;
+        protected Subscription? Subscription;
+        protected Organization? Organization;
 
-        protected UserRole(NodesClient client = null)
+        protected UserRole(NodesClient? client = null)
         {
             Client = client ?? CreateDefaultClient();
             FetchBasicInfo().GetAwaiter().GetResult();

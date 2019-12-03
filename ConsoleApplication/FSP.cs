@@ -9,7 +9,7 @@ namespace ConsoleApplication
 {
     public class FSP: UserRole
     {
-        public FSP(NodesClient client = null) : base(client)
+        public FSP(NodesClient? client = null) : base(client)
         {
         }
 
@@ -25,7 +25,7 @@ namespace ConsoleApplication
 //            var locations = await client.GridLocations.GetByTemplate();
 //            var node = locations.Items.FirstOrDefault() ?? throw new Exception("No grid location available for trade");
 
-            const string mpid = "12345678910";
+            // const string mpid = "12345678910";
             var node = await Client.GridNodes.Create(new GridNode
             {
                 SuppliedByBrpOrganizationId = "23", 
@@ -39,7 +39,7 @@ namespace ConsoleApplication
             {
                 Name = "asset1",
                 AssetTypeId = assetTypes.Items.First().Id,
-                OperatedByOrganizationId = Organization.Id, 
+                OperatedByOrganizationId = Organization?.Id, 
                 GridNodeId = node.Id,
             });
 
@@ -47,7 +47,7 @@ namespace ConsoleApplication
             {
                 Name = "asset1",
                 AssetTypeId = assetTypes.Items.First().Id,
-                OperatedByOrganizationId = Organization.Id, 
+                OperatedByOrganizationId = Organization?.Id, 
                 GridNodeId = node.Id,
             });
 
@@ -60,12 +60,12 @@ namespace ConsoleApplication
             var assets = await Client.Assets.GetByTemplate(new Asset
             {
                 Status    = "Active", 
-                OperatedByOrganizationId = Organization.Id,
+                OperatedByOrganizationId = Organization?.Id,
             });
             var assetPortfolio = await Client.AssetPortfolios.Create(new AssetPortfolio
             {
                 Name = "Asset portfolio 1",
-                ManagedByOrganizationId = Organization.Id,
+                ManagedByOrganizationId = Organization?.Id,
             });
             foreach (var asset in assets.Items)
             {
@@ -81,7 +81,7 @@ namespace ConsoleApplication
         {
             WriteLine("placing sell order... ");
 
-            var assetPortfolios = await Client.AssetPortfolios.GetByTemplate(new AssetPortfolio{ManagedByOrganizationId = Organization.Id});
+            var assetPortfolios = await Client.AssetPortfolios.GetByTemplate(new AssetPortfolio{ManagedByOrganizationId = Organization?.Id});
             var locations = await Client.GridLocations.GetByTemplate();
             var location = locations.Items.First();
 

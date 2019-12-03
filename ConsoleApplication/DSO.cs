@@ -12,7 +12,7 @@ namespace ConsoleApplication
 {
     public class DSO: UserRole
     {
-        public DSO(NodesClient client = null) : base(client)
+        public DSO(NodesClient? client = null) : base(client)
         {
         }
 
@@ -23,22 +23,22 @@ namespace ConsoleApplication
             {
                 Name = "DSORoot",
                 GridNodeType = "DSO Root Node",
-                OperatedByDsoOrganizationId = Organization.Id,
+                OperatedByDsoOrganizationId = Organization?.Id,
             });
 
             var substation = await Client.GridNodes.AddLinkedGridNode(rootNode.Id, new GridNode
             {
                 Name = "Substation 1",
                 GridNodeType = "Substation",
-                OperatedByDsoOrganizationId = Organization.Id,
-//                ParentGridNodeId = rootNode.Id,
+                OperatedByDsoOrganizationId = Organization?.Id,
+                // ParentGridNodeId = rootNode.Id - this is not necessary.  
             });
 
             var secondarySubstation = await Client.GridNodes.Create(new GridNode
             {
                 Name = "Secondary Substation 1",
                 GridNodeType = "Secondary Substation",
-                OperatedByDsoOrganizationId = Organization.Id,
+                OperatedByDsoOrganizationId = Organization?.Id,
                 ParentGridNodeId = substation.Id,
             });
 
@@ -47,7 +47,7 @@ namespace ConsoleApplication
             {
                 Currency = "NOK",
                 QuantityType = QuantityType.Power,
-                OwnerOrganizationId = Organization.Id,
+                OwnerOrganizationId = Organization?.Id,
             });
 
             WriteLine("marking congested nodes / Creating a grid location / open order books");
