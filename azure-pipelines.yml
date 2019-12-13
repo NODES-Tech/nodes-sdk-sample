@@ -6,12 +6,14 @@ trigger:
       - master
       - development
       - releases/*
+      - test
 
 pool:
   git pull: ubuntu-latest
 
 variables:
   BuildConfiguration: 'Release'
+  PublishToPublicRepos: eq(variables['build.sourceBranch'], 'refs/heads/master')
 
 steps:
 
@@ -36,3 +38,5 @@ steps:
       projects: 'ConsoleApplication/ConsoleApplication.csproj'
       arguments: '--configuration $(BuildConfiguration) --no-build'
 
+
+### TODO: PUSH TO GITHUB, if PublishToPublicRepos
