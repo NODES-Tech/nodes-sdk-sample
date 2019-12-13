@@ -33,6 +33,6 @@ steps:
     displayName: Run project
     inputs:
       command: run
-      projects: 'Nodes.Api.SdkSample/Nodes.Api.SdkSample.csproj'
+      projects: 'ConsoleApplication/ConsoleApplication.csproj'
       arguments: '--configuration $(BuildConfiguration) --no-build'
 
