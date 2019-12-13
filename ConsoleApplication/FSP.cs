@@ -7,7 +7,7 @@ using static System.Console;
 
 namespace ConsoleApplication
 {
-    public class FSP: UserRole
+    public class FSP : UserRole
     {
         public FSP(NodesClient? client = null) : base(client)
         {
@@ -20,59 +20,70 @@ namespace ConsoleApplication
             // Locate acceptable asset types: 
             var assetTypes = await Client.AssetTypes.GetByTemplate();
 
-            // Locate the grid node where our assets are stored: 
-            // TODO: Use mpid instead? 
-//            var locations = await client.GridLocations.GetByTemplate();
-//            var node = locations.Items.FirstOrDefault() ?? throw new Exception("No grid location available for trade");
-
-            // const string mpid = "12345678910";
-            var node = await Client.GridNodes.Create(new GridNode
-            {
-                SuppliedByBrpOrganizationId = "23", 
-                MeterPointId = "asdf",
-                OperatedByDsoOrganizationId = "123",
-            });
-
+            const string mpid = "12345678910";
 
             WriteLine("creating assets...");
             var asset1 = await Client.Assets.Create(new Asset
             {
                 Name = "asset1",
                 AssetTypeId = assetTypes.Items.First().Id,
-                OperatedByOrganizationId = Organization?.Id, 
-                GridNodeId = node.Id,
+                OperatedByOrganizationId = Organization?.Id,
             });
 
             var asset2 = await Client.Assets.Create(new Asset
             {
-                Name = "asset1",
+                Name = "asset2",
                 AssetTypeId = assetTypes.Items.First().Id,
-                OperatedByOrganizationId = Organization?.Id, 
-                GridNodeId = node.Id,
+                OperatedByOrganizationId = Organization?.Id,
             });
 
-            WriteLine($"Assets {asset1}, {asset2} were registered. Awaiting approval by DSO. ");
+            var asset3 = await Client.Assets.Create(new Asset
+            {
+                Name = "asset3",
+                AssetTypeId = assetTypes.Items.First().Id,
+                OperatedByOrganizationId = Organization?.Id,
+            });
+
+            var assets = new[] {asset1, asset2, asset3};
+
+            // Assign assets to a MPID
+            foreach (var asset in assets)
+            {
+                await Client.AssetGridAssignments.Create(new AssetGridAssignment
+                {
+                    AssetId = asset.Id,
+                    MPID = mpid,
+                });
+            }
+
+            WriteLine($"Assets {string.Join(", ", assets.Select(a=>a.Id).ToArray())} were registered. Awaiting approval by DSO. ");
         }
 
         public async Task CreatePortfolio()
         {
-            WriteLine( "Creating a portfolio with all approved assets");
+            WriteLine("Creating a portfolio with all approved assets");
             var assets = await Client.Assets.GetByTemplate(new Asset
             {
-                Status    = "Active", 
+                Status = Status.Active,
                 OperatedByOrganizationId = Organization?.Id,
             });
-            var assetPortfolio = await Client.AssetPortfolios.Create(new AssetPortfolio
+            var portfolio = await Client.AssetPortfolios.Create(new AssetPortfolio
             {
                 Name = "Asset portfolio 1",
                 ManagedByOrganizationId = Organization?.Id,
             });
             foreach (var asset in assets.Items)
             {
-                await Client.AssetPortfolios.AddAssetToPortfolio(assetPortfolio.Id, asset.Id);
+                var assignments = await Client.AssetGridAssignments.GetByTemplate(new AssetGridAssignment {AssetId = asset.Id});
+                var assignment = assignments.Items.Single();
+                await Client.AssetPortfolioAssignments.Create(new AssetPortfolioAssignment
+                {
+                    AssetPortfolioId = portfolio.Id, 
+                    AssetGridAssignmentId = assignment.Id,
+                });
             }
 
-            WriteLine($"{assets.Items.Count} assets were added to asset portfolio {assetPortfolio.Id}.");
+            WriteLine($"{assets.Items.Count} assets were added to asset portfolio {portfolio.Id}.");
         }
 
         // TODO: Add base line
@@ -81,7 +92,8 @@ namespace ConsoleApplication
         {
             WriteLine("placing sell order... ");
 
-            var assetPortfolios = await Client.AssetPortfolios.GetByTemplate(new AssetPortfolio{ManagedByOrganizationId = Organization?.Id});
+            var assetPortfolios = await Client.AssetPortfolios.GetByTemplate(new AssetPortfolio {ManagedByOrganizationId = Organization?.Id});
+            var assetPortfolio = assetPortfolios.Items.First(); 
             var locations = await Client.GridLocations.GetByTemplate();
             var location = locations.Items.First();
 
@@ -93,10 +105,8 @@ namespace ConsoleApplication
                 UnitPrice = 300,
                 Side = OrderSide.Sell,
                 FillType = FillType.Normal,
-                AssetPortfolioId = assetPortfolios.Items.First().Id,
+                AssetPortfolioId = assetPortfolio.Id,
                 GridNodeId = location.GridNodeId,
-//                GridNodeId = location.GridNodeId, // TODO: This can be validated and calculated by NODES. Make it optional / illegal? 
-//                PeriodFrom = DateTimeOffset.Now, 
             });
             WriteLine($"Sell order {order.Id} created");
         }

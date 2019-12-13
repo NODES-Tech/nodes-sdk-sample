@@ -5,7 +5,6 @@ using System.Threading.Tasks;
 using Nodes.API.Enums;
 using Nodes.API.Http.Client.Support;
 using Nodes.API.Models;
-using Nodes.API.Queries;
 using static System.Console;
 
 namespace ConsoleApplication
@@ -22,30 +21,24 @@ namespace ConsoleApplication
             var rootNode = await Client.GridNodes.Create(new GridNode
             {
                 Name = "DSORoot",
-                GridNodeType = "DSO Root Node",
-                OperatedByDsoOrganizationId = Organization?.Id,
+                OperatedByOrganizationId = Organization?.Id,
             });
 
             var substation = await Client.GridNodes.AddLinkedGridNode(rootNode.Id, new GridNode
             {
                 Name = "Substation 1",
-                GridNodeType = "Substation",
-                OperatedByDsoOrganizationId = Organization?.Id,
-                // ParentGridNodeId = rootNode.Id - this is not necessary.  
+                OperatedByOrganizationId = Organization?.Id,
             });
 
-            var secondarySubstation = await Client.GridNodes.Create(new GridNode
+            var secondarySubstation = await Client.GridNodes.AddLinkedGridNode(substation.Id, new GridNode
             {
                 Name = "Secondary Substation 1",
-                GridNodeType = "Secondary Substation",
-                OperatedByDsoOrganizationId = Organization?.Id,
-                ParentGridNodeId = substation.Id,
+                OperatedByOrganizationId = Organization?.Id,
             });
 
             WriteLine("creating a flexibility POWER market... ");
             var market = await Client.Markets.Create(new Market
             {
-                Currency = "NOK",
                 QuantityType = QuantityType.Power,
                 OwnerOrganizationId = Organization?.Id,
             });
@@ -98,15 +91,6 @@ namespace ConsoleApplication
                 GridNodeId = node.GridNodeId,
             });
 
-            var search = new TradeSearch
-            {
-                PeriodFrom = new DateTimeRange
-                {
-//                    StartOnOrAfter = ToDayAtMidnight(),
-                }
-            };
-
-
             WriteLine($"{trades.NumberOfHits} trades found. ");
             foreach (var trade in trades.Items)
             {
@@ -116,11 +100,10 @@ namespace ConsoleApplication
 
         public async Task ApproveAssets()
         {
-//            var unapprovedAssets = await Client.Assets.GetByTemplate();
-            var unapprovedAssets = await Client.Assets.GetByTemplate(new Asset {Status = "Pending"});
+            var unapprovedAssets = await Client.Assets.GetByTemplate(new Asset {Status = Status.Pending});
             foreach (var asset in unapprovedAssets.Items)
             {
-                asset.Status = "Active";
+                asset.Status = Status.Active;
                 await Client.Assets.Update(asset);
             }
             

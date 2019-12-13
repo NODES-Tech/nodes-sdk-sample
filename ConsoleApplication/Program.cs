@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Linq;
+using Microsoft.IdentityModel.Clients.ActiveDirectory;
 using static System.Console;
 using static System.String;
+// ReSharper disable ConvertToConstant.Local
 
 namespace ConsoleApplication
 {
@@ -14,6 +16,7 @@ namespace ConsoleApplication
         {
             ("dso grid", () => new DSO().CreateGridNodes().GetAwaiter().GetResult()),
             ("fsp assets", () => new FSP().CreateAssets().GetAwaiter().GetResult()),
+            ("fsp assets", () => new FSP().CreatePortfolio().GetAwaiter().GetResult()),
             ("fsp order", () => new FSP().PlaceSellOrder().GetAwaiter().GetResult()),
             ("dso order", () => new DSO().PlaceBuyOrder().GetAwaiter().GetResult()),
         };
@@ -21,15 +24,16 @@ namespace ConsoleApplication
         public static void Main(params string[] args)
         {
             WriteLine("Welcome to Nodes Client Example!");
+            
             var arg = Join(" ", args);
-            var (o, c) = Operations.SingleOrDefault(n => n.n == arg);
+            var (_, c) = Operations.SingleOrDefault(n => n.n == arg);
             (c ?? ShowHelp)();
 
             // TODO: Remove
-            Operations[0].a();
-            Operations[1].a();
-            Operations[2].a();
-            Operations[3].a();
+            foreach (var operation in Operations)
+            {
+                operation.a();
+            }
         }
 
         public static void ShowHelp()
