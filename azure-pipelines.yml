@@ -27,3 +27,12 @@ steps:
       projects: '**/*.sln'
       arguments: '--configuration $(BuildConfiguration)  /p:Version=0.2.$(Build.BuildID)  /p:PackageVersion=0.2.$(Build.BuildID)'
 
+
+
+  - task: DotNetCoreCLI@2
+    displayName: Run project
+    inputs:
+      command: run
+      projects: 'Nodes.Api.SdkSample/Nodes.Api.SdkSample.csproj'
+      arguments: '--configuration $(BuildConfiguration) --no-build'
+
