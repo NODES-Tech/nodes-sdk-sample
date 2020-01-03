@@ -73,19 +73,19 @@ namespace ConsoleApplication
         
         public void UpdateDeviceLoad(Device dev, Order o) 
         {
-            WriteLine($"  {dev}: Load reduced by {o.Quantity}");
+            WriteLine($"  {dev}: Load reduced by {o.Quantity:F0} due to order {o}");
             dev.CurrentLoad -= (float) o.Quantity.Value;
         }
         
         public void UploadLoadData(Device dev)
         {
-            WriteLine($"  {dev}: Uploading current load {dev.CurrentLoad} to IOT-Hub: ");
+            WriteLine($"  {dev}: Uploading current load {dev.CurrentLoad:F0} to IOT-Hub: ");
             WriteLine("   (not yet implemented)");
         }
 
         public void AdjustLocalDevice(Device dev)
         {
-            WriteLine($"  {dev}: Setting actual physical load to {dev.CurrentLoad}: ");
+            WriteLine($"  {dev}: Setting actual physical load to {dev.CurrentLoad:F0}: ");
             WriteLine("   (not yet implemented)");
         }
 

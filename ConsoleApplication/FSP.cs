@@ -133,6 +133,7 @@ namespace ConsoleApplication
             var orderTemplate = new Order
             {
                 Status = Status.Completed,
+                Side = OrderSide.Sell,
             };
             var options = new SearchOptions
             {
@@ -142,7 +143,7 @@ namespace ConsoleApplication
             var orders = await Client.Orders.GetByTemplate(orderTemplate, options);
 
             return orders.Items
-                // .Where(o => o.CompletionType == Filled || o.CompletionType == Killed)
+                .Where(o => o.CompletionType == Filled || o.CompletionType == Killed)
                 // .Where(o => o.PeriodFrom <= DateTimeOffset.UtcNow)
                 // .Where(o => o.PeriodTo >= DateTimeOffset.UtcNow)
                 .ToList();
