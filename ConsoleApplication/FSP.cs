@@ -1,9 +1,14 @@
+using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Nodes.API.Enums;
 using Nodes.API.Http.Client.Support;
 using Nodes.API.Models;
+using Nodes.API.Queries;
 using static System.Console;
+using static Nodes.API.Enums.OrderCompletionType;
+// ReSharper disable PossibleUnintendedReferenceComparison
 
 namespace ConsoleApplication
 {
@@ -97,6 +102,14 @@ namespace ConsoleApplication
             var locations = await Client.GridLocations.GetByTemplate();
             var location = locations.Items.First();
 
+            var now = DateTimeOffset.UtcNow;
+            now = now.Subtract(TimeSpan.FromMilliseconds(now.Millisecond)); 
+            now = now.Subtract(TimeSpan.FromSeconds(now.Second)); 
+            now = now.Subtract(TimeSpan.FromMinutes(now.Minute)); 
+            
+            
+            
+
             var order = await Client.Orders.Create(new Order
             {
                 Quantity = 1000,
@@ -107,8 +120,32 @@ namespace ConsoleApplication
                 FillType = FillType.Normal,
                 AssetPortfolioId = assetPortfolio.Id,
                 GridNodeId = location.GridNodeId,
+                PeriodFrom = now, 
+                PeriodTo = now.AddHours(2),
             });
             WriteLine($"Sell order {order.Id} created");
+        }
+
+        public async Task<List<Order>> GetCurrentActiveOrders()
+        {
+            WriteLine("fetching list of activated orders");
+
+            var orderTemplate = new Order
+            {
+                Status = Status.Completed,
+            };
+            var options = new SearchOptions
+            {
+                OrderBy = { "Created desc"}, 
+                Take = 100,
+            };
+            var orders = await Client.Orders.GetByTemplate(orderTemplate, options);
+
+            return orders.Items
+                // .Where(o => o.CompletionType == Filled || o.CompletionType == Killed)
+                // .Where(o => o.PeriodFrom <= DateTimeOffset.UtcNow)
+                // .Where(o => o.PeriodTo >= DateTimeOffset.UtcNow)
+                .ToList();
         }
     }
 }
