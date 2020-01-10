@@ -10,8 +10,8 @@ namespace ConsoleApplication
 {
     public static class Program
     {
-        // public const string APIUrl = "https://nodes-demo.azurewebsites.net/";
-        public const string APIUrl = "https://localhost:5001/";
+        public const string APIUrl = "https://nodes-demo.azurewebsites.net/";
+        // public const string APIUrl = "https://localhost:5001/";
 
         public static readonly (string name, Action action)[] Operations =
         {
@@ -21,7 +21,7 @@ namespace ConsoleApplication
             ("fsp portfolios", () => new FSP().CreatePortfolio().GetAwaiter().GetResult()),
             ("fsp order", () => new FSP().PlaceSellOrder().GetAwaiter().GetResult()),
             ("dso order", () => new DSO().PlaceBuyOrder().GetAwaiter().GetResult()),
-            ("devices", () => new DeviceManager().Start()),
+            ("devicedemo", () => new DeviceDemo().Start()),
         };
 
         public static void Main(params string[] args)

@@ -144,8 +144,8 @@ namespace ConsoleApplication
 
             return orders.Items
                 .Where(o => o.CompletionType == Filled || o.CompletionType == Killed)
-                // .Where(o => o.PeriodFrom <= DateTimeOffset.UtcNow)
-                // .Where(o => o.PeriodTo >= DateTimeOffset.UtcNow)
+                .Where(o => o.PeriodFrom <= DateTimeOffset.UtcNow)
+                .Where(o => o.PeriodTo >= DateTimeOffset.UtcNow)
                 .ToList();
         }
     }
