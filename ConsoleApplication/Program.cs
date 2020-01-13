@@ -10,6 +10,7 @@ namespace ConsoleApplication
 {
     public static class Program
     {
+        // public const string APIUrl = "https://api.test.nodesmarket.com/";
         public const string APIUrl = "https://nodes-demo.azurewebsites.net/";
         // public const string APIUrl = "https://localhost:5001/";
 

@@ -11,7 +11,11 @@ namespace ConsoleApplication
 {
     public class DSO: UserRole
     {
-        public DSO(NodesClient? client = null) : base(client)
+        public DSO(NodesClient? client ) : base(client)
+        {
+        }
+
+        public DSO()
         {
         }
 

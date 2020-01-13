@@ -14,19 +14,21 @@ namespace ConsoleApplication
         protected Subscription? Subscription;
         protected Organization? Organization;
 
-        protected UserRole(NodesClient? client = null)
+        protected UserRole()
         {
-            Client = client ?? CreateDefaultClient();
+            Client = CreateDefaultClient();
             FetchBasicInfo().GetAwaiter().GetResult();
         }
 
-        private static NodesClient CreateDefaultClient()
+        protected UserRole(NodesClient client) => Client = client;
+
+        public static NodesClient CreateDefaultClient()
         {
             Console.WriteLine($"Connecting to {Program.APIUrl}");
             var client = new NodesClient(Program.APIUrl);
 
-            Console.WriteLine("checking authentication... ");
-            var user = client.Users.GetCurrentUser().GetAwaiter().GetResult() ?? throw new Exception("Authentication: TBA");
+            // Console.WriteLine("checking authentication... ");
+            // var user = client.Users.GetCurrentUser().GetAwaiter().GetResult() ?? throw new Exception("Authentication: TBA");
 
             return client;
         }

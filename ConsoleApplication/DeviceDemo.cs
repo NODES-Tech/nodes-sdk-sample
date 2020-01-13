@@ -15,12 +15,11 @@ namespace ConsoleApplication
     {
         public readonly List<Device> Devices = new List<Device>();
         public readonly List<Order> ActivatedOrders = new List<Order>();
-        public readonly FSP FSP = new FSP();
 
         public void Start()
         {
             LoadConfiguration();
-
+            Devices.ForEach(UpdateDeviceLoad);
 
             while (true)
             {
@@ -60,7 +59,8 @@ namespace ConsoleApplication
 
         public void FetchOrders()
         {
-            var orders = FSP.GetCurrentActiveOrders().GetAwaiter().GetResult();
+            var client = UserRole.CreateDefaultClient();
+            var orders = new FSP(client).GetCurrentActiveOrders().GetAwaiter().GetResult();
             ActivatedOrders.Clear();
             ActivatedOrders.AddRange(orders);
             WriteLine($" done fetching {ActivatedOrders.Count} active order(s) ");
