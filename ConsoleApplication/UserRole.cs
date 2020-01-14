@@ -1,4 +1,5 @@
 using System;
+using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Threading.Tasks;
 using Nodes.API.Http.Client.Support;
@@ -17,7 +18,49 @@ namespace ConsoleApplication
         protected UserRole()
         {
             Client = CreateDefaultClient();
+            CreateUserAndLogin().GetAwaiter().GetResult();
             FetchBasicInfo().GetAwaiter().GetResult();
+        }
+
+        public virtual User UserData() =>
+            new User
+            {
+                Email = $"nodes-user-{GetType().Name}@example.com",
+                LoginHandle = "nodes-user@example.com",
+                FamilyName = $"{GetType().Name} USER",
+                GivenName = "NODES",
+            };
+
+        public virtual async Task<User> CreateUserAndLogin()
+        {
+            var userRes = await Client.Users.GetByTemplate(new User {Email = UserData().Email});
+            var user = userRes.Items.Any() ? userRes.Items.Single() : await CreateUser();
+
+            // TODO: Temporary login
+            var currentUser = await Client.Users.GetCurrentUser();
+            if (currentUser?.Id != user.Id)
+                await HttpUtils.GetAsync<User>($"{Program.APIUrl}users/set-current-user-id/{user.Id}");
+
+            return user;
+        }
+
+        private async Task<User> CreateUser()
+        {
+            var user = await Client.Users.Create(UserData());
+            var organization = await Client.Organizations.Create(new Organization
+            {
+                Name = $"Nodes Test {GetType().Name} Organization",
+            });
+            var subscription = await Client.Subscriptions.Create(new Subscription
+            {
+                OwnerOrganizationId = organization.Id,
+            });
+            var membership = await Client.Memberships.Create(new Membership
+            {
+                SubscriptionId = subscription.Id,
+                UserId = user.Id,
+            });
+            return user;
         }
 
         protected UserRole(NodesClient client) => Client = client;
@@ -26,10 +69,6 @@ namespace ConsoleApplication
         {
             Console.WriteLine($"Connecting to {Program.APIUrl}");
             var client = new NodesClient(Program.APIUrl);
-
-            // Console.WriteLine("checking authentication... ");
-            // var user = client.Users.GetCurrentUser().GetAwaiter().GetResult() ?? throw new Exception("Authentication: TBA");
-
             return client;
         }
 
