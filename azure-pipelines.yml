@@ -36,7 +36,7 @@ steps:
     inputs:
       command: run
       projects: 'ConsoleApplication/ConsoleApplication.csproj'
-      arguments: '--configuration $(BuildConfiguration) --no-build -pause=off'
+      arguments: '--configuration $(BuildConfiguration) --no-build -pause=off all'
 
 
 ### TODO: PUSH TO GITHUB, if PublishToPublicRepos
