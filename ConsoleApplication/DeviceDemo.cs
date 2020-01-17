@@ -1,9 +1,15 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.Azure.Devices.Client;
+using Microsoft.Azure.Devices.Provisioning.Client;
+using Microsoft.Azure.Devices.Provisioning.Client.Transport;
+using Microsoft.Azure.Devices.Shared;
+using Newtonsoft.Json;
 using Nodes.API.Models;
 using static System.Console;
 
@@ -46,10 +52,11 @@ namespace ConsoleApplication
             Devices.Add(new Device
             {
                 // Id = "el-lampo-numero-uno",
-                Id = "TestDeviceForAssetHub",
-                Name = "Fan",
+                // Id = "TestDeviceForAssetHub",
+                Id = "DemandResponsDevice01",
+                Name = "Usb device",
                 AssetPortfolioId = "ap1",
-                InitialLoad = 10000,
+                InitialLoad = 10,
             });
             WriteLine($"Loaded {Devices.Count} devices(s): ");
             Devices.ForEach(dev => WriteLine($"    {dev.Name} with id {dev.Id}, initial load {dev.InitialLoad}"));
@@ -86,16 +93,131 @@ namespace ConsoleApplication
         {
             WriteLine($"  {dev}: Uploading current load {dev.CurrentLoad:F0} to IOT-Hub: ");
 
-            var connectionString = $"HostName=iot-mvp-prd.azure-devices.net;DeviceId={dev.Id};SharedAccessKey=BvZC7bA+A9k0TBrNJHRAqZLjJgz5EJHpu601hAM+X2Y=";
-            DeviceClient deviceClient = DeviceClient.CreateFromConnectionString(connectionString, TransportType.Amqp);
+            // var connectionString = $"HostName=iot-mvp-prd.azure-devices.net;DeviceId={dev.Id};SharedAccessKey=BvZC7bA+A9k0TBrNJHRAqZLjJgz5EJHpu601hAM+X2Y=";
 
-            var data = $"{{\"messageId\":{Guid.NewGuid().ToString()},\"load\":{dev.CurrentLoad}}}";
-            var eventMessage = new Message(Encoding.UTF8.GetBytes(data));
-            deviceClient.SendEventAsync(eventMessage).ConfigureAwait(false).GetAwaiter().GetResult();
+            var deviceId = "DemandResponsDevice01";
+            var pkey = "keeuh9t/NPB5PjIxodOLDJZJIRS5Pm4ReaNkrC8Jex4=";
+
+            DeviceClient deviceClient = null; 
+            
+            using (var security = new SecurityProviderSymmetricKey(deviceId, pkey, null))
+            {
+                var result =  RegisterDeviceAsync(security).GetAwaiter().GetResult();
+                
+                if (result.Status != ProvisioningRegistrationStatusType.Assigned) {
+                    WriteLine("Failed to register device");
+                    return;
+                }
+                IAuthenticationMethod auth = new DeviceAuthenticationWithRegistrySymmetricKey(result.DeviceId, security.GetPrimaryKey());
+                deviceClient = DeviceClient.Create(result.AssignedHub, auth, TransportType.Mqtt);
+            }
+
+            WriteLine( "   Got device-client, proceeding to upload");
+            
+            var powerTelemetry = new List<PowerTelemetry>
+            {
+                new PowerTelemetry
+                {
+                    CreationTimeUtc = new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, DateTime.UtcNow.Day, DateTime.UtcNow.Hour, DateTime.UtcNow.Minute, 0, 0, DateTimeKind.Utc),
+                    PowerAmountKW = dev.CurrentLoad,
+                    UsageMethod = ElectricityUsageMethod.Consumption
+                },
+                new PowerTelemetry
+                {
+                    CreationTimeUtc = new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, DateTime.UtcNow.Day, DateTime.UtcNow.Hour, DateTime.UtcNow.Minute, 0, 0, DateTimeKind.Utc),
+                    PowerAmountKW = dev.InitialLoad-dev.CurrentLoad,
+                    UsageMethod = ElectricityUsageMethod.OptimizedConsumptionDecrease
+                },
+            };
+
+            
+            var message = ConvertToMessages<PowerTelemetry>(powerTelemetry);
+
+            // Send the message to SmartUtility
+            deviceClient.SendEventBatchAsync(message, new CancellationToken()).Wait();
+
+            
+            
+            
             WriteLine("    (done)");
 
             // WriteLine("   (not yet implemented)");
         }
+        
+        
+        public class Telemetry
+        {
+            [JsonProperty(PropertyName = "iothub-creation-time-utc")]
+            public DateTime CreationTimeUtc { get; set; }
+        }
+        
+        public class PowerTelemetry : Telemetry
+        {
+            public DateTime Timestamp { get; set; }
+
+            public double? PowerAmountKW { get; set; }
+
+            public ElectricityUsageMethod UsageMethod { get; set; }
+        
+            /// <summary>
+            /// Used for identification of the message type for Azure Stream Analytics
+            /// </summary>
+            public string IoTHubTypeIdentifier { get; set; } = "PowerTelemetry";
+        }
+        
+        private static IEnumerable<Message> ConvertToMessages<T>(IEnumerable<Telemetry> events)
+        {
+            using (var stream = new MemoryStream())
+            {
+                
+                var serializerSettings = new JsonSerializerSettings
+                {
+                    DateFormatHandling = DateFormatHandling.IsoDateFormat,
+                    NullValueHandling = NullValueHandling.Ignore,
+                };
+
+                
+                foreach (var eventObject in events)
+                {
+                    
+                    // Reset the stream.
+                    stream.SetLength(0);
+
+                    // Serialize object using standard settings.
+                    var messageString = JsonConvert.SerializeObject(eventObject, serializerSettings);
+                    var message = new Message(Encoding.UTF8.GetBytes(messageString)) {CreationTimeUtc = eventObject.CreationTimeUtc};
+
+
+                    // Yield message with UTF-8 encoded payload.
+                    yield return message;
+                }
+            }
+        }
+
+        public enum ElectricityUsageMethod
+        {
+            Consumption = 1,
+            Generation = 2,
+            ConsumptionIntoStorage = 3,
+            OptimizedConsumptionIncrease = 4,
+            OptimizedConsumptionDecrease
+        }
+
+        //
+        // public class PowerTelemetry : Telemetry
+        // {/
+        //     public DateTime Timestamp { get; set; }
+        //
+        //     public double? PowerAmountKW { get; set; }
+        //
+        //     public ElectricityUsageMethod UsageMethod { get; set; }
+        //
+        //     /// <summary>
+        //     /// Used for identification of the message type for Azure Stream Analytics
+        //     /// </summary>
+        //     public string IoTHubTypeIdentifier { get; set; } = "PowerTelemetry";
+        // }
+
 
         public void AdjustLocalDevice(Device dev)
         {
@@ -109,5 +231,34 @@ namespace ConsoleApplication
                 WriteLine($"      failed: {e.Message}");
             }
         }
+        
+        
+        public static async Task<DeviceRegistrationResult> RegisterDeviceAsync(SecurityProviderSymmetricKey security)
+        {
+            WriteLine("Register device...");
+
+            using (var transport = new ProvisioningTransportHandlerMqtt(TransportFallbackType.TcpOnly))
+            {
+                
+                string GlobalDeviceEndpoint = "global.azure-devices-provisioning.net";
+                var scopeId = "0ne000AC6E1";
+
+                var provClient =
+                    ProvisioningDeviceClient.Create(GlobalDeviceEndpoint, scopeId, security, transport);
+
+                WriteLine($"RegistrationID = {security.GetRegistrationID()}");
+
+
+                Write("ProvisioningClient RegisterAsync...");
+                DeviceRegistrationResult result = await provClient.RegisterAsync();
+
+                WriteLine($"{result.Status}");
+                WriteLine($"ProvisioningClient AssignedHub: {result.AssignedHub}; DeviceID: {result.DeviceId}");
+
+                return result;
+            }
+        }
+        
+        
     }
 }
