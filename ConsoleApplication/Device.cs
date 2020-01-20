@@ -1,63 +1,59 @@
 using System;
-using System.IO.Ports;
-using System.Linq;
-using System.Text;
 using System.Threading;
-using Nodes.API.Support;
+using Nodes.API.Enums;
+using Nodes.API.Models;
 using static System.Console;
 
 namespace ConsoleApplication
 {
     public class Device
     {
-        public bool LightsOn { get; set; }
-
-        
         public string AssetPortfolioId { get; set; }
         public float InitialLoad { get; set; }
         public float CurrentLoad { get; set; }
         public string Name { get; set; }
 
-        public SerialPort Port { get; set; }
+        public int ComPortIndex { get; set; }
 
-        public string DeviceId { get; set; }
-        public string DevicePrimaryKey { get; set; }
+        public string IoTDeviceId { get; set; }
+        public string IoTDevicePrimaryKey { get; set; }
 
-        public string GlobalDeviceEndpoint { get; set; } = "global.azure-devices-provisioning.net";
-        public const string scopeId = "0ne000AC6E1";
+        public string IoTGlobalDeviceEndpoint { get; } = "global.azure-devices-provisioning.net";
 
+        public string IoTDeviceScopeId { get; } = "0ne000AC6E1";
 
-
-        public override string ToString() => $"{Name} ({DeviceId})";
+        public override string ToString() => $"{Name} ({IoTDeviceId})";
 
         public void SendLocalLoad()
         {
-            GetOrCreateConnection();
+            ComPorts.GetOrCreateConnection();
             if (!IsReady())
             {
                 throw new Exception("Did not receive ready response from device. Check connection and power");
             }
-
-            var valAsString = LightsOn ? "20000": "-1";
-            SendBytes($"1VAL{valAsString}");
-
-            var onOff = LightsOn ? "1" : "0";
-            SendBytes($"2VAL{onOff}");
-            LightsOn = !LightsOn;
-            WriteLine($"    {this}: Value set to {valAsString} / {onOff}");
+            ComPorts.SendBytes($"{ComPortIndex}VAL{ToCString(CurrentLoad)}");
+            WriteLine($"    {this}: Value set to {ToCString(CurrentLoad)}");
         }
 
-        public void SendMaxLoad() => SendBytes($"MAX{CurrentLoad:0000}");
+        public void SendMaxLoad() => ComPorts.SendBytes($"{ComPortIndex}MAX{ToCString(InitialLoad)}");
+
+        private static string ToCString(float f)
+        {
+            var s = f.ToString("0") + ".0";
+            // WriteLine($"FLOAT: {f} => {s}");
+            return s;
+        }
 
         public bool IsReady()
         {
             try
             {
-                Port.DiscardInBuffer();
-                SendBytes("READY?");
+                ComPorts.Port.DiscardInBuffer();
+                ComPorts.SendBytes("READY?");
                 Thread.Sleep(100);
-                var bytes = ReadBytes();
-                var response = Encoding.ASCII.GetString(bytes);
+                // var bytes = ComPorts.ReadBytes();
+                // var response = Encoding.ASCII.GetString(bytes);
+                var response = ComPorts.ReadBytes();
                 return response.Contains("READY!");
             }
             catch (Exception)
@@ -66,78 +62,29 @@ namespace ConsoleApplication
             }
         }
 
-
-        private void SendBytes(string s)
+        public void UpdateDeviceLoad(Order o)
         {
-            var msg = s + "\n\0";
-            var bytes = Encoding.ASCII.GetBytes(msg);
-            Port.Write(bytes, 0, bytes.Length);
-            Thread.Sleep(1000);
-            // Port.WriteLine(s);
-            // throw new NotImplementedException();
-        }
-
-
-        public void GetOrCreateConnection()
-        {
-            if (Port == null || !Port.IsOpen)
+            if (o.RegulationType == null)
             {
-                // Find com port number
-                var portId = FindPortId();
-                // create connection
-                Port = new SerialPort
-                {
-                    PortName = portId,
-                    BaudRate = 9600,
-                    DataBits = 8,
-                    Parity = Parity.None,
-                    ReadTimeout = 1000,
-                    WriteTimeout = 1000
-                };
-
-                Port.Open();
-                WriteLine($"  {this}: Connection opened on port {portId}");
+                WriteLine($"  {this}: Malformed order - ignored: {o}");
+                return;
             }
-        }
 
-        private string FindPortId()
-        {
-            var candidates = SerialPort.GetPortNames();
-            WriteLine($"      {candidates.Length} available port names: {candidates.JoinToString()}");
-            var found = candidates.Where(HasInputDevice);
-            return found.SingleOrDefault();
-        }
-
-        private bool HasInputDevice(string s)
-        {
-            try
+            if (o.RegulationType == RegulationType.Up)
             {
-                var port = new SerialPort
-                {
-                    PortName = s,
-                    BaudRate = 9600,
-                    DataBits = 8,
-                    Parity = Parity.None,
-                    ReadTimeout = 500,
-                    WriteTimeout = 500
-                };
-
-                port.Open();
-                // return port.IsOpen;
-                port.Close();
-                Thread.Sleep(100);
-                return true;
+                WriteLine($"  {this}: Production/consumption increased by {o.Quantity:F0} due to order {o}");
+                CurrentLoad += (float) o.Quantity.Value;
+                return;
             }
-            catch (Exception)
+
+            if (o.RegulationType == RegulationType.Down)
             {
-                return false;
+                WriteLine($"  {this}: Production/consumption reduced by {o.Quantity:F0} due to order {o}");
+                CurrentLoad -= (float) o.Quantity.Value;
+                return;
             }
-        }
 
-        private byte[] ReadBytes()
-        {
-            return Encoding.ASCII.GetBytes(Port.ReadLine());
-            // throw new NotImplementedException();
+            throw new ArgumentException("WTF");
         }
     }
 }
