@@ -27,20 +27,31 @@ namespace ConsoleApplication
 
         public static void Main(params string[] args)
         {
+            ComPorts.GetOrCreateConnection();
+            ComPorts.SendBytes("READY?");
+            var res = ComPorts.ReadBytes();
+            
+            WriteLine($"RES: {res}");
+
+
+
+            // return; 
+            
+            
             WriteLine("Welcome to Nodes Client Example!");
 
             var arg = Join(" ", args.Where(s => !s.StartsWith("-")));
             var pauseAtEnd = !args.Any(s => s.Equals("-pause=off"));
 
-            var (_, c) = Operations.SingleOrDefault(n => n.name == arg);
-            if (c == null)
+            var (name, oper) = Operations.SingleOrDefault(n => n.name == arg);
+            if (oper == null)
             {
                 ShowHelp();
             }
             else
             {
-                WriteLine("   Run with argument 'help' to see list of options. ");
-                c();
+                WriteLine($"   Your command: {name}. Run with argument 'help' to see list of options. ");
+                oper();
             }
 
             // TODO: Remove, just for running locally

@@ -132,16 +132,16 @@ namespace ConsoleApplication
         public async Task<List<Order>> GetCurrentActiveOrders()
         {
             WriteLine("fetching list of activated orders");
-
-            var orderTemplate = new Order
-            {
-                Status = Status.Completed,
-                Side = OrderSide.Sell,
-            };
             var options = new SearchOptions
             {
                 OrderBy = {"Created desc"},
                 Take = 100,
+            };
+
+            var orderTemplate = new Order
+            {
+                Status = Status.Completed,
+                // Side = OrderSide.Sell,
             };
             var orders = await Client.Orders.GetByTemplate(orderTemplate, options);
 
