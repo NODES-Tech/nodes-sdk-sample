@@ -6,12 +6,14 @@ trigger:
       - master
       - development
       - releases/*
+      - test
 
 pool:
   git pull: ubuntu-latest
 
 variables:
   BuildConfiguration: 'Release'
+  PublishToPublicRepos: eq(variables['build.sourceBranch'], 'refs/heads/master')
 
 steps:
 
@@ -27,3 +29,14 @@ steps:
       projects: '**/*.sln'
       arguments: '--configuration $(BuildConfiguration)  /p:Version=0.2.$(Build.BuildID)  /p:PackageVersion=0.2.$(Build.BuildID)'
 
+
+
+  - task: DotNetCoreCLI@2
+    displayName: Run project
+    inputs:
+      command: run
+      projects: 'ConsoleApplication/ConsoleApplication.csproj'
+      arguments: '--configuration $(BuildConfiguration) --no-build -pause=off all'
+
+
+### TODO: PUSH TO GITHUB, if PublishToPublicRepos
