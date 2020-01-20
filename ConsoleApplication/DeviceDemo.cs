@@ -110,7 +110,7 @@ namespace ConsoleApplication
 
             DeviceClient deviceClient; 
             
-            using (var security = new SecurityProviderSymmetricKey(deviceId, pkey, null))
+            using (var security = new SecurityProviderSymmetricKey(dev.DeviceId, dev.DevicePrimaryKey, null))
             {
                 var result =  RegisterDeviceAsync(security).GetAwaiter().GetResult();
                 
