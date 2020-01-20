@@ -11,7 +11,8 @@ namespace ConsoleApplication
     public class Device
     {
         public bool LightsOn { get; set; }
-        public string Id { get; set; }
+
+        
         public string AssetPortfolioId { get; set; }
         public float InitialLoad { get; set; }
         public float CurrentLoad { get; set; }
@@ -19,8 +20,15 @@ namespace ConsoleApplication
 
         public SerialPort Port { get; set; }
 
+        public string DeviceId { get; set; }
+        public string DevicePrimaryKey { get; set; }
 
-        public override string ToString() => $"{Name} ({Id})";
+        public string GlobalDeviceEndpoint { get; set; } = "global.azure-devices-provisioning.net";
+        public const string scopeId = "0ne000AC6E1";
+
+
+
+        public override string ToString() => $"{Name} ({DeviceId})";
 
         public void SendLocalLoad()
         {

@@ -21,6 +21,16 @@ namespace ConsoleApplication
     {
         public readonly List<Device> Devices = new List<Device>();
         public readonly List<Order> ActivatedOrders = new List<Order>();
+        
+        public const string globalDeviceEndpoint = "global.azure-devices-provisioning.net";
+        public const string scopeId = "0ne000AC6E1";
+
+        
+        public static readonly JsonSerializerSettings SerializerSettings= new JsonSerializerSettings
+        {
+            DateFormatHandling = DateFormatHandling.IsoDateFormat,
+            NullValueHandling = NullValueHandling.Ignore,
+        };
 
         public void Start()
         {
@@ -53,13 +63,15 @@ namespace ConsoleApplication
             {
                 // Id = "el-lampo-numero-uno",
                 // Id = "TestDeviceForAssetHub",
-                Id = "DemandResponsDevice01",
+                DeviceId = "DemandResponsDevice01",
+                DevicePrimaryKey =  "keeuh9t/NPB5PjIxodOLDJZJIRS5Pm4ReaNkrC8Jex4=",
                 Name = "Usb device",
                 AssetPortfolioId = "ap1",
                 InitialLoad = 10,
+                
             });
             WriteLine($"Loaded {Devices.Count} devices(s): ");
-            Devices.ForEach(dev => WriteLine($"    {dev.Name} with id {dev.Id}, initial load {dev.InitialLoad}"));
+            Devices.ForEach(dev => WriteLine($"    {dev.Name} with id {dev.DeviceId}, initial load {dev.InitialLoad}"));
             Devices.ForEach(dev => dev.CurrentLoad = dev.InitialLoad);
             WriteLine();
         }
@@ -95,10 +107,8 @@ namespace ConsoleApplication
 
             // var connectionString = $"HostName=iot-mvp-prd.azure-devices.net;DeviceId={dev.Id};SharedAccessKey=BvZC7bA+A9k0TBrNJHRAqZLjJgz5EJHpu601hAM+X2Y=";
 
-            var deviceId = "DemandResponsDevice01";
-            var pkey = "keeuh9t/NPB5PjIxodOLDJZJIRS5Pm4ReaNkrC8Jex4=";
 
-            DeviceClient deviceClient = null; 
+            DeviceClient deviceClient; 
             
             using (var security = new SecurityProviderSymmetricKey(deviceId, pkey, null))
             {
@@ -167,40 +177,17 @@ namespace ConsoleApplication
         
         private static IEnumerable<Message> ConvertToMessages<T>(IEnumerable<Telemetry> events)
         {
-            using (var stream = new MemoryStream())
+            foreach (var eventObject in events)
             {
-                
-                var serializerSettings = new JsonSerializerSettings
+                var messageString = JsonConvert.SerializeObject(eventObject, SerializerSettings);
+                var message = new Message(Encoding.UTF8.GetBytes(messageString))
                 {
-                    DateFormatHandling = DateFormatHandling.IsoDateFormat,
-                    NullValueHandling = NullValueHandling.Ignore,
-                };
-
-                
-                foreach (var eventObject in events)
-                {
+                    CreationTimeUtc = eventObject.CreationTimeUtc
                     
-                    // Reset the stream.
-                    stream.SetLength(0);
-
-                    // Serialize object using standard settings.
-                    var messageString = JsonConvert.SerializeObject(eventObject, serializerSettings);
-                    var message = new Message(Encoding.UTF8.GetBytes(messageString)) {CreationTimeUtc = eventObject.CreationTimeUtc};
-
-
-                    // Yield message with UTF-8 encoded payload.
-                    yield return message;
-                }
+                };
+                // Yield message with UTF-8 encoded payload.
+                yield return message;
             }
-        }
-
-        public enum ElectricityUsageMethod
-        {
-            Consumption = 1,
-            Generation = 2,
-            ConsumptionIntoStorage = 3,
-            OptimizedConsumptionIncrease = 4,
-            OptimizedConsumptionDecrease
         }
 
         //
@@ -239,12 +226,8 @@ namespace ConsoleApplication
 
             using (var transport = new ProvisioningTransportHandlerMqtt(TransportFallbackType.TcpOnly))
             {
-                
-                string GlobalDeviceEndpoint = "global.azure-devices-provisioning.net";
-                var scopeId = "0ne000AC6E1";
-
                 var provClient =
-                    ProvisioningDeviceClient.Create(GlobalDeviceEndpoint, scopeId, security, transport);
+                    ProvisioningDeviceClient.Create(globalDeviceEndpoint, scopeId, security, transport);
 
                 WriteLine($"RegistrationID = {security.GetRegistrationID()}");
 
