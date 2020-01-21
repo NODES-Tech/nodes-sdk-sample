@@ -35,14 +35,14 @@ namespace ConsoleApplication.IoTHub
 
         public static async Task<DeviceRegistrationResult> RegisterDeviceAsync(SecurityProviderSymmetricKey security, Device dev)
         {
-            Console.WriteLine("Register device...");
+            // Console.WriteLine("Register device...");
             using var transport = new ProvisioningTransportHandlerMqtt(TransportFallbackType.TcpOnly);
             var provClient =
                 ProvisioningDeviceClient.Create(dev.IoTGlobalDeviceEndpoint, dev.IoTDeviceScopeId, security, transport);
-            Console.WriteLine($"RegistrationID = {security.GetRegistrationID()}");
-            Console.Write("ProvisioningClient RegisterAsync...");
+            // Console.WriteLine($"RegistrationID = {security.GetRegistrationID()}");
+            // Console.Write("ProvisioningClient RegisterAsync...");
             var result = await provClient.RegisterAsync();
-            Console.WriteLine($"ProvisioningClient Stauts: {result.Status}, AssignedHub: {result.AssignedHub}; DeviceID: {result.DeviceId}");
+            // Console.WriteLine($"ProvisioningClient Stauts: {result.Status}, AssignedHub: {result.AssignedHub}; DeviceID: {result.DeviceId}");
             return result;
         }
 
@@ -66,7 +66,7 @@ namespace ConsoleApplication.IoTHub
                 IAuthenticationMethod auth = new DeviceAuthenticationWithRegistrySymmetricKey(result.DeviceId, security.GetPrimaryKey());
                 deviceClient = DeviceClient.Create(result.AssignedHub, auth, TransportType.Mqtt);
             }
-            Console.WriteLine("   Got device-client, proceeding to upload");
+            // Console.WriteLine("   Got device-client, proceeding to upload");
             var powerTelemetry = new List<PowerTelemetry>
             {
                 new PowerTelemetry
