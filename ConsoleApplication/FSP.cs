@@ -151,5 +151,16 @@ namespace ConsoleApplication
                 .Where(o => o.PeriodTo >= DateTimeOffset.UtcNow)
                 .ToList();
         }
+
+        public async Task ClearOrders()
+        {
+            WriteLine( "Clear orders");
+            var orders = await GetCurrentActiveOrders();
+            foreach (var order in orders)
+            {
+                await Client.Orders.Delete(order.Id);
+            }
+            WriteLine($"{orders.Count} items found and deleted");
+        }
     }
 }

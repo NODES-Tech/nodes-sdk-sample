@@ -1,5 +1,4 @@
 using System;
-using System.Threading;
 using Nodes.API.Enums;
 using Nodes.API.Models;
 using static System.Console;
@@ -26,11 +25,6 @@ namespace ConsoleApplication
 
         public void SendLocalLoad()
         {
-            ComPorts.GetOrCreateConnection();
-            if (!IsReady())
-            {
-                throw new Exception("Did not receive ready response from device. Check connection and power");
-            }
             ComPorts.SendBytes($"{ComPortIndex}VAL{ToCString(CurrentLoad)}");
             WriteLine($"    {this}: Value set to {ToCString(CurrentLoad)}");
         }
@@ -42,24 +36,6 @@ namespace ConsoleApplication
             var s = f.ToString("0") + ".0";
             // WriteLine($"FLOAT: {f} => {s}");
             return s;
-        }
-
-        public bool IsReady()
-        {
-            try
-            {
-                ComPorts.Port.DiscardInBuffer();
-                ComPorts.SendBytes("READY?");
-                Thread.Sleep(100);
-                // var bytes = ComPorts.ReadBytes();
-                // var response = Encoding.ASCII.GetString(bytes);
-                var response = ComPorts.ReadBytes();
-                return response.Contains("READY!");
-            }
-            catch (Exception)
-            {
-                return false;
-            }
         }
 
         public void UpdateDeviceLoad(Order o)

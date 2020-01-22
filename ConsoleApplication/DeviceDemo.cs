@@ -10,6 +10,7 @@ using Microsoft.Azure.Devices.Provisioning.Client;
 using Microsoft.Azure.Devices.Provisioning.Client.Transport;
 using Microsoft.Azure.Devices.Shared;
 using Newtonsoft.Json;
+using Nodes.API.Http.Client.Support;
 using Nodes.API.Models;
 using static System.Console;
 
@@ -25,17 +26,33 @@ namespace ConsoleApplication
         public void Start()
         {
             LoadConfiguration();
-            Devices.ForEach(UpdateDeviceLoad);
-            ComPorts.GetOrCreateConnection();
-            Devices.ForEach(dev => dev.IsReady());
-            Devices.ForEach(dev => dev.SendMaxLoad());
 
             while (true)
             {
                 FetchOrders();
-
                 Devices.ForEach(UpdateDeviceLoad);
-                Devices.ForEach(AdjustLocalDevice);
+                
+                if( !ComPorts.IsConnected() ) {
+                    ComPorts.CreateConnectionIfNotOpen();
+                    if (ComPorts.IsConnected())
+                    {
+                        if (ComPorts.IsReady())
+                        {
+                            Devices.ForEach(dev => dev.SendMaxLoad());
+                        }
+                        else
+                        {
+                            WriteLine("  COM port device did not send READY! signal");
+                        }
+                    }
+                }
+                
+                if (ComPorts.IsConnected())
+                {
+                    Devices.ForEach(AdjustLocalDevice);
+                }
+
+                
                 Devices.ForEach(IoTHubUtil.UploadLoadData);
 
                 WriteLine();
@@ -55,8 +72,8 @@ namespace ConsoleApplication
             Devices.Add(new Device
             {
                 Name = "Wind mill 007",
-                IoTDeviceId = "DemandResponsDevice01",
-                IoTDevicePrimaryKey = "keeuh9t/NPB5PjIxodOLDJZJIRS5Pm4ReaNkrC8Jex4=",
+                IoTDeviceId = "windturbine01",
+                IoTDevicePrimaryKey = "+KdG3tZu/WJiVYVNUQ6NGTgo8qE4rfI7Xpryqs5PtBE=",
                 AssetPortfolioId = "ap1",
                 ComPortIndex = 1,
                 InitialLoad = 10,
@@ -64,25 +81,24 @@ namespace ConsoleApplication
             Devices.Add(new Device
             {
                 Name = "Factory 42",
-                // IoTDeviceId = "DemandResponsDevice01",
-                // IoTDevicePrimaryKey = "keeuh9t/NPB5PjIxodOLDJZJIRS5Pm4ReaNkrC8Jex4=",
+                IoTDeviceId = "factory01",
+                IoTDevicePrimaryKey = "YrBRZLGwyDyu5ehWDRdyESnB0lWI8opmUwPwMsToHTQ=",
                 AssetPortfolioId = "ap2",
                 ComPortIndex = 2,
                 InitialLoad = 10,
             });
+            Devices.ForEach(dev => dev.CurrentLoad = dev.InitialLoad);
             WriteLine($"Loaded {Devices.Count} devices(s): ");
             Devices.ForEach(dev => WriteLine($"    {dev.Name} with id {dev.IoTDeviceId}, initial load {dev.InitialLoad}"));
-            Devices.ForEach(dev => dev.CurrentLoad = dev.InitialLoad);
             WriteLine();
         }
 
         public void FetchOrders()
         {
-            var client = UserRole.CreateDefaultClient();
-            var orders = new FSP(client).GetCurrentActiveOrders().GetAwaiter().GetResult();
+            var orders = new FSP(UserRole.CreateDefaultClient()).GetCurrentActiveOrders().GetAwaiter().GetResult();
             ActivatedOrders.Clear();
             ActivatedOrders.AddRange(orders);
-            WriteLine($" done fetching {ActivatedOrders.Count} active order(s) ");
+            WriteLine($"- Done fetching orders from NODES - {ActivatedOrders.Count} active order(s) found. ");
             WriteLine();
         }
 

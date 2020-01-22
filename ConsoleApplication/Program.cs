@@ -14,44 +14,36 @@ namespace ConsoleApplication
         public const string APIUrl = "https://nodes-demo.azurewebsites.net/";
         // public const string APIUrl = "https://localhost:5001/";
 
+        public static bool PauseAtEnd = true; // Should be true so that double-clicking a batch file keeps the result visible..."
+
         public static readonly (string name, Action action)[] Operations =
         {
             ("help", ShowHelp),
+            ("skip-pause-at-end", () => PauseAtEnd = false ), // Required for CI/CD pipeline! 
             ("dso-grid", () => new DSO().CreateGridNodes().GetAwaiter().GetResult()),
             ("fsp-assets", () => new FSP().CreateAssets().GetAwaiter().GetResult()),
             ("fsp-portfolios", () => new FSP().CreatePortfolio().GetAwaiter().GetResult()),
             ("fsp-order", () => new FSP().PlaceSellOrder().GetAwaiter().GetResult()),
             ("dso-order", () => new DSO().PlaceBuyOrder().GetAwaiter().GetResult()),
+            ("orders-clear", () => new FSP(UserRole.CreateDefaultClient()).ClearOrders().GetAwaiter().GetResult()),
             ("devices-demo", () => new DeviceDemo().Start()),
         };
 
         public static void Main(params string[] args)
         {
-            ComPorts.GetOrCreateConnection();
-            ComPorts.SendBytes("READY?");
-            var res = ComPorts.ReadBytes();
-            
-            WriteLine($"RES: {res}");
-
-
-
-            // return; 
-            
-            
             WriteLine("Welcome to Nodes Client Example!");
 
-            var arg = Join(" ", args.Where(s => !s.StartsWith("-")));
-            var pauseAtEnd = !args.Any(s => s.Equals("-pause=off"));
-
-            var (name, oper) = Operations.SingleOrDefault(n => n.name == arg);
-            if (oper == null)
+            var todo = Operations.Where(p => args.Contains(p.name)).ToList();
+            if (!todo.Any() || args.Any(a => Operations.All(p => p.name != a)))
             {
                 ShowHelp();
+                return;
             }
-            else
+
+            WriteLine($"   Your commands: {string.Join(" ", args)}. Run with argument 'help' to see list of options. ");
+            foreach (var oper in todo)
             {
-                WriteLine($"   Your command: {name}. Run with argument 'help' to see list of options. ");
-                oper();
+                oper.action();
             }
 
             // TODO: Remove, just for running locally
@@ -63,7 +55,7 @@ namespace ConsoleApplication
                 }
             }
 
-            if (pauseAtEnd)
+            if (PauseAtEnd)
             {
                 WriteLine("--- DONE - Press enter to close program");
                 ReadLine();
@@ -76,8 +68,6 @@ namespace ConsoleApplication
             Operations
                 .Select(n => "   " + n.name).ToList()
                 .ForEach(WriteLine);
-            WriteLine("Options: ");
-            WriteLine("   -pause=off: Don't wait for readline when program ends");
         }
     }
 }
