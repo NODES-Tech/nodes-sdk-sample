@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Linq;
-using Microsoft.IdentityModel.Clients.ActiveDirectory;
 using static System.Console;
 using static System.String;
 
@@ -40,7 +39,7 @@ namespace ConsoleApplication
                 return;
             }
 
-            WriteLine($"   Your commands: {string.Join(" ", args)}. Run with argument 'help' to see list of options. ");
+            WriteLine($"   Your commands: {Join(" ", args)}. Run with argument 'help' to see list of options. ");
             foreach (var oper in todo)
             {
                 oper.action();

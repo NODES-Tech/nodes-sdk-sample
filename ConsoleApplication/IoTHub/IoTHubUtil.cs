@@ -13,6 +13,19 @@ namespace ConsoleApplication.IoTHub
 {
     public class IoTHubUtil
     {
+        public static DeviceClient CreateDeviceClient(Device dev)
+        {
+            using var security = new SecurityProviderSymmetricKey(dev.IoTDeviceId, dev.IoTDevicePrimaryKey, null);
+            var result = RegisterDeviceAsync(security, dev).GetAwaiter().GetResult();
+            if (result.Status != ProvisioningRegistrationStatusType.Assigned)
+            {
+                Console.WriteLine("Failed to register device");
+                return null;
+            }
+            IAuthenticationMethod auth = new DeviceAuthenticationWithRegistrySymmetricKey(result.DeviceId, security.GetPrimaryKey());
+            return DeviceClient.Create(result.AssignedHub, auth, TransportType.Mqtt);
+        }
+        
         public static readonly JsonSerializerSettings SerializerSettings = new JsonSerializerSettings
         {
             DateFormatHandling = DateFormatHandling.IsoDateFormat,
@@ -54,40 +67,42 @@ namespace ConsoleApplication.IoTHub
                 return;
             }
             Console.WriteLine($"  {dev}: Uploading current load {dev.CurrentLoad:F0} to IOT-Hub: ");
-            DeviceClient deviceClient;
-            using (var security = new SecurityProviderSymmetricKey(dev.IoTDeviceId, dev.IoTDevicePrimaryKey, null))
-            {
-                var result = RegisterDeviceAsync(security, dev).GetAwaiter().GetResult();
-                if (result.Status != ProvisioningRegistrationStatusType.Assigned)
-                {
-                    Console.WriteLine("Failed to register device");
-                    return;
-                }
-                IAuthenticationMethod auth = new DeviceAuthenticationWithRegistrySymmetricKey(result.DeviceId, security.GetPrimaryKey());
-                deviceClient = DeviceClient.Create(result.AssignedHub, auth, TransportType.Mqtt);
-            }
             // Console.WriteLine("   Got device-client, proceeding to upload");
             var powerTelemetry = new List<PowerTelemetry>
             {
                 new PowerTelemetry
                 {
                     CreationTimeUtc = new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, DateTime.UtcNow.Day, DateTime.UtcNow.Hour,
-                        DateTime.UtcNow.Minute, 0, 0, DateTimeKind.Utc),
+                        DateTime.UtcNow.Minute, DateTime.UtcNow.Second, 0, DateTimeKind.Utc),
                     PowerAmountKW = dev.CurrentLoad,
                     UsageMethod = ElectricityUsageMethod.Consumption
                 },
-                new PowerTelemetry
-                {
-                    CreationTimeUtc = new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, DateTime.UtcNow.Day, DateTime.UtcNow.Hour,
-                        DateTime.UtcNow.Minute, 0, 0, DateTimeKind.Utc),
-                    PowerAmountKW = dev.InitialLoad - dev.CurrentLoad,
-                    UsageMethod = ElectricityUsageMethod.OptimizedConsumptionDecrease
-                },
+                // new PowerTelemetry
+                // {
+                //     CreationTimeUtc = new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, DateTime.UtcNow.Day, DateTime.UtcNow.Hour,
+                //         DateTime.UtcNow.Minute, DateTime.UtcNow.Second, 0, DateTimeKind.Utc),
+                //     PowerAmountKW = dev.InitialLoad - dev.CurrentLoad,
+                //     UsageMethod = ElectricityUsageMethod.OptimizedConsumptionDecrease
+                // },
             };
-            var message = IoTHubUtil.ConvertToMessages(powerTelemetry);
+            var message = ConvertToMessages(powerTelemetry);
             // Send the message to SmartUtility
-            deviceClient.SendEventBatchAsync(message, new CancellationToken()).Wait();
-            Console.WriteLine("    (done)");
+            try
+            {
+
+                if (dev.DeviceClient == null)
+                {
+                    dev.DeviceClient = CreateDeviceClient(dev);
+                }
+
+                dev.DeviceClient.SendEventBatchAsync(message, new CancellationToken()).Wait();
+                Console.WriteLine("    (done)");
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine($"   (failed: {e}");
+                dev.DeviceClient = null; 
+            }
         }
     }
 }
