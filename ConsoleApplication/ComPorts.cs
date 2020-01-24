@@ -89,6 +89,7 @@ namespace ConsoleApplication
             try
             {
                 Port.DiscardInBuffer();
+                Thread.Sleep(100);
                 SendBytes("READY?");
                 Thread.Sleep(100);
                 // var bytes = ComPorts.ReadBytes();
