@@ -1,17 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Threading;
-using System.Threading.Tasks;
 using ConsoleApplication.IoTHub;
-using Microsoft.Azure.Devices.Client;
-using Microsoft.Azure.Devices.Provisioning.Client;
-using Microsoft.Azure.Devices.Provisioning.Client.Transport;
-using Microsoft.Azure.Devices.Shared;
-using Newtonsoft.Json;
-using Nodes.API.Http.Client.Support;
 using Nodes.API.Models;
+using Nodes.API.Queries;
 using static System.Console;
 
 // ReSharper disable PossibleInvalidOperationException
@@ -21,7 +14,7 @@ namespace ConsoleApplication
     public class DeviceDemo
     {
         public readonly List<Device> Devices = new List<Device>();
-        public readonly List<Order> ActivatedOrders = new List<Order>();
+        public SearchResult<Order> ActivatedOrders;
 
         public void Start()
         {
@@ -74,7 +67,7 @@ namespace ConsoleApplication
                 Name = "Wind mill 007",
                 IoTDeviceId = "windturbine01",
                 IoTDevicePrimaryKey = "+KdG3tZu/WJiVYVNUQ6NGTgo8qE4rfI7Xpryqs5PtBE=",
-                AssetPortfolioId = "ap1",
+                AssetPortfolioName = "ap1",
                 ComPortIndex = 1,
                 InitialLoad = 10,
             });
@@ -83,7 +76,7 @@ namespace ConsoleApplication
                 Name = "Factory 42",
                 IoTDeviceId = "factory01",
                 IoTDevicePrimaryKey = "YrBRZLGwyDyu5ehWDRdyESnB0lWI8opmUwPwMsToHTQ=",
-                AssetPortfolioId = "ap2",
+                AssetPortfolioName = "ap2",
                 ComPortIndex = 2,
                 InitialLoad = 10,
             });
@@ -95,18 +88,28 @@ namespace ConsoleApplication
 
         public void FetchOrders()
         {
-            var orders = new FSP(UserRole.CreateDefaultClient()).GetCurrentActiveOrders().GetAwaiter().GetResult();
-            ActivatedOrders.Clear();
-            ActivatedOrders.AddRange(orders);
-            WriteLine($"- Done fetching orders from NODES - {ActivatedOrders.Count} active order(s) found. ");
-            WriteLine();
+            try
+            {
+                ActivatedOrders = new FSP(UserRole.CreateDefaultClient()).GetCurrentActiveOrders().GetAwaiter().GetResult();
+                // ActivatedOrders.Clear();
+                // ActivatedOrders.AddRange(orders);
+                WriteLine($"- Done fetching orders from NODES - {ActivatedOrders.Items.Count} active order(s) found. ");
+                WriteLine();
+            }
+            catch (Exception e)
+            {
+                WriteLine($"Failed: {e}");
+            }
         }
 
         public void UpdateDeviceLoad(Device dev)
         {
             dev.CurrentLoad = dev.InitialLoad;
-            ActivatedOrders
-                .Where(o => o.AssetPortfolioId == dev.AssetPortfolioId)
+            ActivatedOrders.Items
+                .Where(FSP.IsActive)
+                .Select(o => (o, (AssetPortfolio)ActivatedOrders.Embedded.Single(ap => ap.Id == o.AssetPortfolioId)))
+                .Where(o => o.Item2.Name == dev.AssetPortfolioName)
+                .Select(o =>o.o)
                 .ToList()
                 .ForEach(dev.UpdateDeviceLoad);
         }

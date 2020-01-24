@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Nodes.API.Enums;
@@ -129,12 +128,13 @@ namespace ConsoleApplication
             WriteLine($"Sell order {order.Id} created");
         }
 
-        public async Task<List<Order>> GetCurrentActiveOrders()
+        public async Task<SearchResult<Order>> GetCurrentActiveOrders()
         {
             WriteLine("fetching list of activated orders");
             var options = new SearchOptions
             {
                 OrderBy = {"Created desc"},
+                Embeddings = { "assetportfolio"},
                 Take = 100,
             };
 
@@ -143,24 +143,26 @@ namespace ConsoleApplication
                 Status = Status.Completed,
                 // Side = OrderSide.Sell,
             };
-            var orders = await Client.Orders.GetByTemplate(orderTemplate, options);
-
-            return orders.Items
-                .Where(o => o.CompletionType == Filled || o.CompletionType == Killed)
-                .Where(o => o.PeriodFrom <= DateTimeOffset.UtcNow)
-                .Where(o => o.PeriodTo >= DateTimeOffset.UtcNow)
-                .ToList();
+            return await Client.Orders.GetByTemplate(orderTemplate, options);
         }
+
+        public static bool IsActive(Order o) =>
+            (o.CompletionType == Filled || o.CompletionType == Killed) 
+            && o.PeriodFrom <= DateTimeOffset.UtcNow 
+            && o.PeriodTo >= DateTimeOffset.UtcNow;
 
         public async Task ClearOrders()
         {
-            WriteLine( "Clear orders");
+            WriteLine("Clear orders");
+
             var orders = await GetCurrentActiveOrders();
-            foreach (var order in orders)
+            var activeOrders = orders.Items.Where(IsActive).ToList();
+            foreach (var order in activeOrders)
             {
                 await Client.Orders.Delete(order.Id);
             }
-            WriteLine($"{orders.Count} items found and deleted");
+
+            WriteLine($"{activeOrders.Count} items found and deleted");
         }
     }
 }

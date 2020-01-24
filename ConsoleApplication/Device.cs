@@ -1,4 +1,5 @@
 using System;
+using Microsoft.Azure.Devices.Client;
 using Nodes.API.Enums;
 using Nodes.API.Models;
 using static System.Console;
@@ -7,6 +8,7 @@ namespace ConsoleApplication
 {
     public class Device
     {
+        public string AssetPortfolioName { get; set; }
         public string AssetPortfolioId { get; set; }
         public float InitialLoad { get; set; }
         public float CurrentLoad { get; set; }
@@ -14,6 +16,8 @@ namespace ConsoleApplication
 
         public int ComPortIndex { get; set; }
 
+
+        public DeviceClient DeviceClient { get; set; }
         public string IoTDeviceId { get; set; }
         public string IoTDevicePrimaryKey { get; set; }
 
