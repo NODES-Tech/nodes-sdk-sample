@@ -88,11 +88,18 @@ namespace ConsoleApplication
 
         public void FetchOrders()
         {
-            ActivatedOrders = new FSP(UserRole.CreateDefaultClient()).GetCurrentActiveOrders().GetAwaiter().GetResult();
-            // ActivatedOrders.Clear();
-            // ActivatedOrders.AddRange(orders);
-            WriteLine($"- Done fetching orders from NODES - {ActivatedOrders.Items.Count} active order(s) found. ");
-            WriteLine();
+            try
+            {
+                ActivatedOrders = new FSP(UserRole.CreateDefaultClient()).GetCurrentActiveOrders().GetAwaiter().GetResult();
+                // ActivatedOrders.Clear();
+                // ActivatedOrders.AddRange(orders);
+                WriteLine($"- Done fetching orders from NODES - {ActivatedOrders.Items.Count} active order(s) found. ");
+                WriteLine();
+            }
+            catch (Exception e)
+            {
+                WriteLine($"Failed: {e}");
+            }
         }
 
         public void UpdateDeviceLoad(Device dev)
