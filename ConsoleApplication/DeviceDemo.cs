@@ -14,7 +14,14 @@ namespace ConsoleApplication
     public class DeviceDemo
     {
         public readonly List<Device> Devices = new List<Device>();
-        public SearchResult<Order> ActivatedOrders;
+        public SearchResult<Order>? ActivatedOrders;
+
+        private readonly FSP _fsp;
+
+        public DeviceDemo(FSP fsp)
+        {
+            _fsp = fsp;
+        }
 
         public void Start()
         {
@@ -24,8 +31,9 @@ namespace ConsoleApplication
             {
                 FetchOrders();
                 Devices.ForEach(UpdateDeviceLoad);
-                
-                if( !ComPorts.IsConnected() ) {
+
+                if (!ComPorts.IsConnected())
+                {
                     ComPorts.CreateConnectionIfNotOpen();
                     if (ComPorts.IsConnected())
                     {
@@ -39,13 +47,13 @@ namespace ConsoleApplication
                         }
                     }
                 }
-                
+
                 if (ComPorts.IsConnected())
                 {
                     Devices.ForEach(AdjustLocalDevice);
                 }
 
-                
+
                 Devices.ForEach(IoTHubUtil.UploadLoadData);
 
                 WriteLine();
@@ -90,7 +98,7 @@ namespace ConsoleApplication
         {
             try
             {
-                ActivatedOrders = new FSP(UserRole.CreateDefaultClient()).GetCurrentActiveOrders().GetAwaiter().GetResult();
+                ActivatedOrders = _fsp.GetCurrentActiveOrders().GetAwaiter().GetResult();
                 // ActivatedOrders.Clear();
                 // ActivatedOrders.AddRange(orders);
                 WriteLine($"- Done fetching orders from NODES - {ActivatedOrders.Items.Count} active order(s) found. ");
@@ -105,11 +113,11 @@ namespace ConsoleApplication
         public void UpdateDeviceLoad(Device dev)
         {
             dev.CurrentLoad = dev.InitialLoad;
-            ActivatedOrders.Items
+            ActivatedOrders?.Items
                 .Where(FSP.IsActive)
-                .Select(o => (o, (AssetPortfolio)ActivatedOrders.Embedded.Single(ap => ap.Id == o.AssetPortfolioId)))
+                .Select(o => (o, (AssetPortfolio) ActivatedOrders.Embedded.Single(ap => ap.Id == o.AssetPortfolioId)))
                 .Where(o => o.Item2.Name == dev.AssetPortfolioName)
-                .Select(o =>o.o)
+                .Select(o => o.o)
                 .ToList()
                 .ForEach(dev.UpdateDeviceLoad);
         }

@@ -1,7 +1,5 @@
 using System;
 using System.Linq;
-using System.Net.Http;
-using System.Net.Http.Headers;
 using System.Threading.Tasks;
 using Nodes.API.Enums;
 using Nodes.API.Http.Client.Support;
@@ -10,8 +8,6 @@ using Nodes.API.Queries;
 using Nodes.API.Support;
 using static System.Console;
 using static Nodes.API.Enums.OrderCompletionType;
-using static Nodes.API.Support.Relations;
-using Trade = Nodes.API.Models.Trade;
 
 // ReSharper disable PossibleUnintendedReferenceComparison
 
@@ -20,10 +16,6 @@ namespace ConsoleApplication
     public class FSP : UserRole
     {
         public FSP(NodesClient client) : base(client)
-        {
-        }
-
-        public FSP()
         {
         }
 
@@ -42,6 +34,7 @@ namespace ConsoleApplication
                 Name = "asset1",
                 AssetTypeId = assetTypes.Items.First().Id,
                 OperatedByOrganizationId = Organization?.Id,
+                RampUpRate = 1, RampDownRate = 1,
             });
 
             var asset2 = await Client.Assets.Create(new Asset
@@ -49,6 +42,7 @@ namespace ConsoleApplication
                 Name = "asset2",
                 AssetTypeId = assetTypes.Items.First().Id,
                 OperatedByOrganizationId = Organization?.Id,
+                RampUpRate = 1, RampDownRate = 1,
             });
 
             var asset3 = await Client.Assets.Create(new Asset
@@ -56,9 +50,12 @@ namespace ConsoleApplication
                 Name = "asset3",
                 AssetTypeId = assetTypes.Items.First().Id,
                 OperatedByOrganizationId = Organization?.Id,
+                RampUpRate = 1, RampDownRate = 1,
             });
 
             var assets = new[] {asset1, asset2, asset3};
+
+            var gridNodes = await Client.GridNodes.GetByTemplate();
 
             // Assign assets to a MPID
             foreach (var asset in assets)
@@ -66,7 +63,11 @@ namespace ConsoleApplication
                 await Client.AssetGridAssignments.Create(new AssetGridAssignment
                 {
                     AssetId = asset.Id,
+                    ManagedByOrganizationId = Organization?.Id,
+                    OperatedByOrganizationId = Organization?.Id,
+                    SuppliedByOrganizationId = Organization?.Id,
                     MPID = mpid,
+                    GridNodeId = gridNodes.Items.First().Id,
                 });
             }
 
@@ -85,6 +86,8 @@ namespace ConsoleApplication
             {
                 Name = "Asset portfolio 1",
                 ManagedByOrganizationId = Organization?.Id,
+                RenewableType = RenewableType.Renewable,
+                MinRampDownRate = 1, MinRampUpRate = 2, MaxRampDownRate = 3, MaxRampUpRate = 4,
             });
             foreach (var asset in assets.Items)
             {
@@ -110,6 +113,8 @@ namespace ConsoleApplication
             var assetPortfolio = assetPortfolios.Items.First();
             var locations = await Client.GridLocations.GetByTemplate();
             var location = locations.Items.First();
+            var markets = await Client.Markets.GetByTemplate();
+            var market = markets.Items.First();
 
             var now = DateTimeOffset.UtcNow;
             now = now.Subtract(TimeSpan.FromMilliseconds(now.Millisecond));
@@ -119,16 +124,23 @@ namespace ConsoleApplication
 
             var order = await Client.Orders.Create(new Order
             {
+                AssetPortfolioId = assetPortfolio.Id,
+                GridNodeId = location.GridNodeId,
+                OwnerOrganizationId = Organization.Id,
+                MarketId = market.Id,
+                Side = OrderSide.Sell,
+                FillType = FillType.Normal,
+                PriceType = PriceType.Limit,
+                RegulationType = RegulationType.Down,
+                QuantityType = QuantityType.Power,
                 Quantity = 1000,
                 RebalancePrice = 100,
                 FlexMarginPrice = 200,
                 UnitPrice = 300,
-                Side = OrderSide.Sell,
-                FillType = FillType.Normal,
-                AssetPortfolioId = assetPortfolio.Id,
-                GridNodeId = location.GridNodeId,
                 PeriodFrom = now,
                 PeriodTo = now.AddHours(2),
+                BlockSizeInSeconds = market.MinimumBlockSizeInSeconds,
+                MaxBlocks = 1,AdjacentBlocks = 1, RestBlocks = 0,
             });
             WriteLine($"Sell order {order.Id} created");
         }
@@ -170,17 +182,14 @@ namespace ConsoleApplication
             WriteLine($"{activeOrders.Count} items found and deleted");
         }
 
-        public static async Task GetInfo()
+        public async Task GetInfo()
         {
-            var nodesClient = CreateDefaultClient();
-            var fsp = new FSP(nodesClient);
-
             WriteLine("List FSP info");
 
-            await fsp.ShowOrders();
-            await fsp.ShowUsers();
-            await fsp.ShowTrades();
-            await fsp.ShowPortfolios();
+            await ShowOrders();
+            await ShowUsers();
+            await ShowTrades();
+            await ShowPortfolios();
         }
 
         private async Task ShowTrades()

@@ -14,28 +14,43 @@ namespace ConsoleApplication
 {
     public class DSO : UserRole
     {
+        public DSO(NodesClient client) : base(client)
+        {
+        }
+
         public async Task CreateGridNodes()
         {
             // await DisplayGridNodeTree();
             // return; 
             
             WriteLine("Setting up a gride node structure");
+            var priceArea = await Client.PriceAreas.Create(new PriceArea
+            {
+                Name = "Sample price area",
+            });
+            
             var rootNode = await Client.GridNodes.Create(new GridNode
             {
                 Name = "DSORoot",
-                OperatedByOrganizationId = Organization?.Id,
+                OperatedByOrganizationId = Organization.Id,
+                PriceAreaId = priceArea.Id,
+                Location = Coordinate.ParseSingleCoordinate("123, 234")
             });
 
             var substation = await Client.GridNodes.AddLinkedGridNode(rootNode.Id, new GridNode
             {
                 Name = "Substation 1",
                 OperatedByOrganizationId = Organization?.Id,
+                PriceAreaId = priceArea.Id,
+                Location = Coordinate.ParseSingleCoordinate("123, 234")
             });
 
             var secondarySubstation = await Client.GridNodes.AddLinkedGridNode(substation.Id, new GridNode
             {
                 Name = "Secondary Substation 1",
                 OperatedByOrganizationId = Organization?.Id,
+                PriceAreaId = priceArea.Id,
+                Location = Coordinate.ParseSingleCoordinate("123, 234")
             });
             
             
@@ -46,6 +61,8 @@ namespace ConsoleApplication
             WriteLine("creating a flexibility POWER market... ");
             var market = await Client.Markets.Create(new Market
             {
+                Name = "Demo market",
+                CurrencyId = "NOK",
                 QuantityType = QuantityType.Power,
                 OwnerOrganizationId = Organization?.Id,
             });
@@ -86,14 +103,22 @@ namespace ConsoleApplication
                 MarketId = sellOrder.MarketId,
                 GridNodeId = node.GridNodeId,
                 Quantity = sellOrder.Quantity,
+                OwnerOrganizationId = Organization.Id,
                 QuantityType = sellOrder.QuantityType,
+                FillType = FillType.Normal,
                 Side = OrderSide.Buy,
+                RegulationType = RegulationType.Down,
+
+                BlockSizeInSeconds = sellOrder.BlockSizeInSeconds,
+                MaxBlocks = 1,AdjacentBlocks = 1, RestBlocks = 0,
 
                 // Here we specify a price, which is the upper limit of what we are willing to pay. 
                 // An alternative is to specify price type Market. In that case UnitPrice is not used
                 // and there will be no limit to the price we are willing to pay. 
                 UnitPrice = sellOrder.UnitPrice,
-                PriceType = PriceType.Limit
+                FlexMarginPrice = sellOrder.FlexMarginPrice,
+                RebalancePrice = sellOrder.RebalancePrice,
+                PriceType = PriceType.Limit,
             });
 
             WriteLine($"Buy order {buyOrder.Id} created successfully");
