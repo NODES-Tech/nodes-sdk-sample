@@ -1,12 +1,17 @@
 using System;
 using System.Linq;
+using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Threading.Tasks;
 using Nodes.API.Enums;
 using Nodes.API.Http.Client.Support;
 using Nodes.API.Models;
 using Nodes.API.Queries;
+using Nodes.API.Support;
 using static System.Console;
 using static Nodes.API.Enums.OrderCompletionType;
+using static Nodes.API.Support.Relations;
+using Trade = Nodes.API.Models.Trade;
 
 // ReSharper disable PossibleUnintendedReferenceComparison
 
@@ -134,7 +139,7 @@ namespace ConsoleApplication
             var options = new SearchOptions
             {
                 OrderBy = {"Created desc"},
-                Embeddings = { "assetportfolio"},
+                Embeddings = {"assetportfolio"},
                 Take = 100,
             };
 
@@ -147,8 +152,8 @@ namespace ConsoleApplication
         }
 
         public static bool IsActive(Order o) =>
-            (o.CompletionType == Filled || o.CompletionType == Killed) 
-            && o.PeriodFrom <= DateTimeOffset.UtcNow 
+            (o.CompletionType == Filled || o.CompletionType == Killed)
+            && o.PeriodFrom <= DateTimeOffset.UtcNow
             && o.PeriodTo >= DateTimeOffset.UtcNow;
 
         public async Task ClearOrders()
@@ -163,6 +168,92 @@ namespace ConsoleApplication
             }
 
             WriteLine($"{activeOrders.Count} items found and deleted");
+        }
+
+        public static async Task GetInfo()
+        {
+            var nodesClient = CreateDefaultClient();
+            var fsp = new FSP(nodesClient);
+
+            WriteLine("List FSP info");
+
+            await fsp.ShowOrders();
+            await fsp.ShowUsers();
+            await fsp.ShowTrades();
+            await fsp.ShowPortfolios();
+        }
+
+        private async Task ShowTrades()
+        {
+            var tradeTemplate = new Trade
+            {
+                // OwnerOrganizationId = "2bf3eec6-1efb-e911-828b-501ac536dc28",
+                OwnerOrganizationId = "c9b1b9b8-6971-437c-ac0a-98330f3ad49d",
+                // Side = OrderSide.Buy,
+                // RegulationType = RegulationType.Down.ToString(),
+            };
+            var searchOptions = new SearchOptions
+            {
+                Take = 100,
+                Embeddings = {Relations.Organization, Relations.AssetPortfolio, Relations.GridNode},
+                OrderBy = {nameof(Trade.LastModified)}
+            };
+            var search = new TradeSearch
+            {
+                Created = new DateTimeRange(DateTimeOffset.UtcNow.AddHours(-24), null),
+            };
+            var tradeRes = await Client.Trades.GetByTemplate(tradeTemplate, searchOptions, search);
+            WriteLine($"Number of trades:  {tradeRes.Items.Count} / {tradeRes.NumberOfHits}");
+            foreach (var trade in tradeRes.Items)
+            {
+                // var org = await fsp.Client.Organizations.GetById(trade.OwnerOrganizationId);
+                // var ap = trade.AssetPortfolioId == null ? null : await fsp.Client.AssetPortfolios.GetById(trade.AssetPortfolioId);
+                // var gn = trade.GridNodeId == null ? null : await fsp.Client.GridNodes.GetById(trade.GridNodeId);
+                var org = tradeRes.Embedded.SingleOrDefault(x => x.Id == trade.OwnerOrganizationId);
+                var gn = tradeRes.Embedded.OfType<GridNode>().SingleOrDefault(x => x.Id == trade.GridNodeId);
+                var ap = tradeRes.Embedded.SingleOrDefault(x => x.Id == trade.AssetPortfolioId);
+                // NB: Asset portfolio is not relevant/visible for BUY orders. 
+                WriteLine(
+                    $"  Trade: {trade.Status} {trade.Side} {trade.RegulationType} {trade.Quantity}MWh@{trade.UnitPrice} EUR  " +
+                    $"{trade.PeriodFrom}-{trade.PeriodTo}ap={ap}, §org={org}, gn={gn}, mpid={gn.MPID}");
+            }
+        }
+
+        private async Task ShowPortfolios()
+        {
+            var portfolioRes =
+                await Client.AssetPortfolios.GetByTemplate(new AssetPortfolio {ManagedByOrganizationId = "2bf3eec6-1efb-e911-828b-501ac536dc28"});
+            WriteLine($"Number of asset portfolios:  {portfolioRes.NumberOfHits}");
+            portfolioRes.Items.ForEach(i => WriteLine($"  Asset portfolio: {i.Id} {i.Name}"));
+        }
+
+        private async Task ShowUsers()
+        {
+            var userRes = await Client.Users.GetByTemplate();
+            WriteLine($"Number of users:  {userRes.NumberOfHits}");
+            userRes.Items.ForEach(i => WriteLine("  User: " + i));
+        }
+
+        public async Task ShowOrders()
+        {
+            var orders = await Client.Orders.GetByTemplate(new Order
+            {
+                // Side = OrderSide.Sell,
+                // OwnerOrganizationId = "e84ff8d5-83fc-e911-828b-501ac536dc28", 
+            }, new SearchOptions
+            {
+                Embeddings = {"organization"},
+                Take = 10,
+                OrderBy = {"lastmodified desc"}
+            });
+            WriteLine($"Number of orders:  {orders.NumberOfHits}");
+            orders.Items.ForEach(i =>
+            {
+                var org = (Organization) orders.Embedded.Single(x => x.Id == i.OwnerOrganizationId);
+                WriteLine(
+                    $"  {i.Side} Order: {i.Status} {i.RegulationType} {i.PeriodFrom}-{i.PeriodTo}, org={org.Id} {org.Name}"
+                );
+            });
         }
     }
 }

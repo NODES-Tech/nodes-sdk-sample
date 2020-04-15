@@ -14,18 +14,10 @@ namespace ConsoleApplication
 {
     public class DSO : UserRole
     {
-        public DSO(NodesClient client) : base(client)
-        {
-        }
-
-        public DSO()
-        {
-        }
-        
         public async Task CreateGridNodes()
         {
-            await DisplayGridNodeTree();
-            return; 
+            // await DisplayGridNodeTree();
+            // return; 
             
             WriteLine("Setting up a gride node structure");
             var rootNode = await Client.GridNodes.Create(new GridNode
