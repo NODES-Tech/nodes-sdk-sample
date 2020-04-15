@@ -108,13 +108,11 @@ namespace ConsoleApplication
             }
         }
 
-        private IConfigurationRoot BuildConfigurationRoot()
-        {
-            var configurationRoot = new ConfigurationBuilder()
+        private IConfigurationRoot BuildConfigurationRoot() =>
+            new ConfigurationBuilder()
                 .AddJsonFile("appsettings.json")
-                .AddJsonFile("appsettings.local.json").Build();
-            return configurationRoot;
-        }
+                .AddJsonFile("appsettings.local.json", optional:true)
+                .Build();
 
         public void ShowHelp()
         {
