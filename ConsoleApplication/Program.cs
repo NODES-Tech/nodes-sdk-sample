@@ -111,7 +111,7 @@ namespace ConsoleApplication
         private IConfigurationRoot BuildConfigurationRoot() =>
             new ConfigurationBuilder()
                 .AddJsonFile("appsettings.json")
-                .AddJsonFile("appsettings.local.json", optional:true)
+                .AddJsonFile("appsettings.local.json", optional: true)
                 .Build();
 
         public void ShowHelp()
