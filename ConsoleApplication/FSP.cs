@@ -29,13 +29,14 @@ namespace ConsoleApplication
             const string mpid = "12345678910";
 
             WriteLine("creating assets...");
-            var asset1 = await Client.Assets.Create(new Asset
+            var a = new Asset
             {
                 Name = "asset1",
                 AssetTypeId = assetTypes.Items.First().Id,
                 OperatedByOrganizationId = Organization?.Id,
                 RampUpRate = 1, RampDownRate = 1,
-            });
+            };
+            var asset1 = await Client.Assets.Create(a);
 
             var asset2 = await Client.Assets.Create(new Asset
             {
