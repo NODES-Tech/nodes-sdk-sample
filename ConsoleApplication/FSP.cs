@@ -115,13 +115,16 @@ namespace ConsoleApplication
             var locations = await Client.GridLocations.GetByTemplate();
             var location = locations.Items.First();
             var markets = await Client.Markets.GetByTemplate();
-            var market = markets.Items.First();
+            // var market = markets.Items.First();
+            var market = markets.Items.Single(m => m.Name.StartsWith("Agder")); // TODO: Fix this hardcoding. 
 
             var now = DateTimeOffset.UtcNow;
             now = now.Subtract(TimeSpan.FromMilliseconds(now.Millisecond));
             now = now.Subtract(TimeSpan.FromSeconds(now.Second));
             now = now.Subtract(TimeSpan.FromMinutes(now.Minute));
 
+            var start = now.AddHours(2);
+            var end = now.AddHours(2).AddSeconds(market.MinimumBlockSizeInSeconds);
 
             var order = await Client.Orders.Create(new Order
             {
@@ -130,16 +133,17 @@ namespace ConsoleApplication
                 OwnerOrganizationId = Organization.Id,
                 MarketId = market.Id,
                 Side = OrderSide.Sell,
-                FillType = FillType.Normal,
                 PriceType = PriceType.Limit,
                 RegulationType = RegulationType.Down,
                 QuantityType = QuantityType.Power,
-                Quantity = 1000,
-                RebalancePrice = 100,
-                FlexMarginPrice = 200,
-                UnitPrice = 300,
-                PeriodFrom = now,
-                PeriodTo = now.AddHours(2),
+                Quantity = (decimal?) 13.3,
+                RebalancePrice = (decimal?) 13.3,
+                FlexMarginPrice = (decimal?) 26.6,
+                UnitPrice = null, // Leave this out for Power markets
+                FillType = FillType.Normal,
+                ValidTo = start,
+                PeriodFrom = start,
+                PeriodTo = end,
                 BlockSizeInSeconds = market.MinimumBlockSizeInSeconds,
                 MaxBlocks = 1, AdjacentBlocks = 1, RestBlocks = 0,
             });
