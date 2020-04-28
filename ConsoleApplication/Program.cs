@@ -81,9 +81,6 @@ namespace ConsoleApplication
         {
             WriteLine("Welcome to Nodes Client Example!");
 
-            var fsp = _services.GetRequiredService<FSP>();
-            fsp.CreateAssets().GetAwaiter().GetResult();
-            
             var todo = Operations().Where(p => args.Contains(p.name)).ToList();
             if (!todo.Any() || args.Any(a => Operations().All(p => p.name != a)))
             {
