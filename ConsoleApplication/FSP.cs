@@ -115,13 +115,16 @@ namespace ConsoleApplication
             var locations = await Client.GridLocations.GetByTemplate();
             var location = locations.Items.First();
             var markets = await Client.Markets.GetByTemplate();
-            var market = markets.Items.First();
+            // var market = markets.Items.First();
+            var market = markets.Items.Single(m => m.Name.StartsWith("Agder")); // TODO: Fix this hardcoding. 
 
             var now = DateTimeOffset.UtcNow;
             now = now.Subtract(TimeSpan.FromMilliseconds(now.Millisecond));
             now = now.Subtract(TimeSpan.FromSeconds(now.Second));
             now = now.Subtract(TimeSpan.FromMinutes(now.Minute));
 
+            var start = now.AddHours(2);
+            var end = now.AddHours(2).AddSeconds(market.MinimumBlockSizeInSeconds);
 
             var order = await Client.Orders.Create(new Order
             {
@@ -130,18 +133,19 @@ namespace ConsoleApplication
                 OwnerOrganizationId = Organization.Id,
                 MarketId = market.Id,
                 Side = OrderSide.Sell,
-                FillType = FillType.Normal,
                 PriceType = PriceType.Limit,
                 RegulationType = RegulationType.Down,
                 QuantityType = QuantityType.Power,
-                Quantity = 1000,
-                RebalancePrice = 100,
-                FlexMarginPrice = 200,
-                UnitPrice = 300,
-                PeriodFrom = now,
-                PeriodTo = now.AddHours(2),
+                Quantity = (decimal?) 13.3,
+                RebalancePrice = (decimal?) 13.3,
+                FlexMarginPrice = (decimal?) 26.6,
+                UnitPrice = null, // Leave this out for Power markets
+                FillType = FillType.Normal,
+                ValidTo = start,
+                PeriodFrom = start,
+                PeriodTo = end,
                 BlockSizeInSeconds = market.MinimumBlockSizeInSeconds,
-                MaxBlocks = 1,AdjacentBlocks = 1, RestBlocks = 0,
+                MaxBlocks = 1, AdjacentBlocks = 1, RestBlocks = 0,
             });
             WriteLine($"Sell order {order.Id} created");
         }
@@ -191,17 +195,12 @@ namespace ConsoleApplication
             await ShowUsers();
             await ShowTrades();
             await ShowPortfolios();
+            await ShowAssets();
         }
 
         private async Task ShowTrades()
         {
-            var tradeTemplate = new Trade
-            {
-                // OwnerOrganizationId = "2bf3eec6-1efb-e911-828b-501ac536dc28",
-                OwnerOrganizationId = "c9b1b9b8-6971-437c-ac0a-98330f3ad49d",
-                // Side = OrderSide.Buy,
-                // RegulationType = RegulationType.Down.ToString(),
-            };
+            var tradeTemplate = new Trade();
             var searchOptions = new SearchOptions
             {
                 Take = 100,
@@ -216,9 +215,6 @@ namespace ConsoleApplication
             WriteLine($"Number of trades:  {tradeRes.Items.Count} / {tradeRes.NumberOfHits}");
             foreach (var trade in tradeRes.Items)
             {
-                // var org = await fsp.Client.Organizations.GetById(trade.OwnerOrganizationId);
-                // var ap = trade.AssetPortfolioId == null ? null : await fsp.Client.AssetPortfolios.GetById(trade.AssetPortfolioId);
-                // var gn = trade.GridNodeId == null ? null : await fsp.Client.GridNodes.GetById(trade.GridNodeId);
                 var org = tradeRes.Embedded.SingleOrDefault(x => x.Id == trade.OwnerOrganizationId);
                 var gn = tradeRes.Embedded.OfType<GridNode>().SingleOrDefault(x => x.Id == trade.GridNodeId);
                 var ap = tradeRes.Embedded.SingleOrDefault(x => x.Id == trade.AssetPortfolioId);
@@ -232,9 +228,19 @@ namespace ConsoleApplication
         private async Task ShowPortfolios()
         {
             var portfolioRes =
-                await Client.AssetPortfolios.GetByTemplate(new AssetPortfolio {ManagedByOrganizationId = "2bf3eec6-1efb-e911-828b-501ac536dc28"});
+                await Client.AssetPortfolios.GetByTemplate(new AssetPortfolio
+                {
+                    ManagedByOrganizationId = Organization.Id,
+                });
             WriteLine($"Number of asset portfolios:  {portfolioRes.NumberOfHits}");
             portfolioRes.Items.ForEach(i => WriteLine($"  Asset portfolio: {i.Id} {i.Name}"));
+        }
+
+        private async Task ShowAssets()
+        {
+            var assets =await Client.Assets.GetByTemplate(new Asset{OperatedByOrganizationId = Organization.Id});
+            WriteLine($"Number of assets:  {assets.NumberOfHits}");
+            assets.Items.ForEach(i => WriteLine($"  Asset: {i.Id} {i.Name}"));
         }
 
         private async Task ShowUsers()
@@ -246,16 +252,13 @@ namespace ConsoleApplication
 
         public async Task ShowOrders()
         {
-            var orders = await Client.Orders.GetByTemplate(new Order
-            {
-                // Side = OrderSide.Sell,
-                // OwnerOrganizationId = "e84ff8d5-83fc-e911-828b-501ac536dc28", 
-            }, new SearchOptions
-            {
-                Embeddings = {"organization"},
-                Take = 10,
-                OrderBy = {"lastmodified desc"}
-            });
+            var orders = await Client.Orders.GetByTemplate(new Order(),
+                new SearchOptions
+                {
+                    Embeddings = {"organization"},
+                    Take = 10,
+                    OrderBy = {"lastmodified desc"}
+                });
             WriteLine($"Number of orders:  {orders.NumberOfHits}");
             orders.Items.ForEach(i =>
             {
