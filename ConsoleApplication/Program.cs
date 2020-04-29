@@ -14,6 +14,9 @@ namespace ConsoleApplication
 {
     public class Program
     {
+        private bool _pauseAtEnd = true; // Should be default true, in non-CI scenarios, so that double-clicking a batch file keeps the result visible
+        private readonly ServiceProvider _services;
+
         public static void Main(params string[] args) => new Program().Run(args);
 
         public static IConfigurationRoot BuildConfigurationRoot() =>
@@ -22,37 +25,39 @@ namespace ConsoleApplication
                 .AddJsonFile("appsettings.local.json", optional: true)
                 .Build();
 
-        public Program() =>
-            _services = new ServiceCollection()
-                
+        public Program()
+        {
+            var serviceCollection = new ServiceCollection()
+
                 // Read appsettings and appsettings. Customize if needed.
-                .AddSingleton<IConfiguration>(BuildConfigurationRoot())  
-                
+                .AddSingleton<IConfiguration>(BuildConfigurationRoot())
+
                 // In cases where the server provides invalid/selfsigned SSL certificates, e.g. localhost, 
                 // add a dummy validator: 
                 .AddSingleton<HttpMessageHandler>(
-                    new HttpClientHandler  
+                    new HttpClientHandler
                     {
                         ServerCertificateCustomValidationCallback = (message, certificate2, arg3, arg4) => true
                     })
-                .AddSingleton<HttpClient, HttpClient>()
-                
+
                 // This token provider will get a token from the B2C server, using clientid/secret found in appsettings*.json
                 // We recommend creating a new file appsettings.local.json and adding your values there. 
                 // See TokenProvider for details. 
-                .AddSingleton<ITokenProvider, TokenProvider>() 
+                .AddSingleton<ITokenProvider, TokenProvider>()
                 .AddSingleton<HttpUtils>()
-                
+
                 // The APIUrl is specified in appsettings.json or appsettings.local.json
                 // The rest of the parameters to NodesClient will be fetched from the service collection on instantiation. 
                 .AddSingleton(x => ActivatorUtilities.CreateInstance<NodesClient>(x, x.GetRequiredService<IConfiguration>().GetSection("APIUrl").Value))
                 .AddSingleton<DSO>()
                 .AddSingleton<FSP>()
-                .AddSingleton<DeviceDemo>()
-                .BuildServiceProvider();
+                .AddSingleton<DeviceDemo>();
+            
+            serviceCollection.AddHttpClient<HttpUtils>();
+            serviceCollection.AddHttpClient<ITokenProvider, TokenProvider>();
 
-        private bool _pauseAtEnd = true; // Should be default true, in non-CI scenarios, so that double-clicking a batch file keeps the result visible
-        private readonly ServiceProvider _services;
+            _services = serviceCollection.BuildServiceProvider();
+        }
 
         public (string name, Action action)[] Operations() => new (string name, Action action)[]
         {
@@ -83,7 +88,7 @@ namespace ConsoleApplication
 
             var fsp = _services.GetRequiredService<FSP>();
             fsp.CreateAssets().GetAwaiter().GetResult();
-            
+
             var todo = Operations().Where(p => args.Contains(p.name)).ToList();
             if (!todo.Any() || args.Any(a => Operations().All(p => p.name != a)))
             {
