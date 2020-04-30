@@ -26,41 +26,29 @@ namespace ConsoleApplication
             // Locate acceptable asset types: 
             var assetTypes = await Client.AssetTypes.GetByTemplate();
 
-            const string mpid = "12345678910";
 
-            WriteLine("creating assets...");
-            var a = new Asset
-            {
-                Name = "asset1",
-                AssetTypeId = assetTypes.Items.First().Id,
-                OperatedByOrganizationId = Organization?.Id,
-                RampUpRate = 1, RampDownRate = 1,
-            };
-            var asset1 = await Client.Assets.Create(a);
+            var assetNames = Enumerable.Range(1, 3).Select(i => "asset" + i).ToArray();
 
-            var asset2 = await Client.Assets.Create(new Asset
-            {
-                Name = "asset2",
-                AssetTypeId = assetTypes.Items.First().Id,
-                OperatedByOrganizationId = Organization?.Id,
-                RampUpRate = 1, RampDownRate = 1,
-            });
 
-            var asset3 = await Client.Assets.Create(new Asset
-            {
-                Name = "asset3",
-                AssetTypeId = assetTypes.Items.First().Id,
-                OperatedByOrganizationId = Organization?.Id,
-                RampUpRate = 1, RampDownRate = 1,
-            });
+            WriteLine($"creating {assetNames.Length} assets (if they dont' exist yet)...");
+            var assets = assetNames
+                .Select( name =>  CreateAssetIfNotExists(name, assetTypes.Items.FirstOrDefault()).GetAwaiter().GetResult())
+                .ToArray();
 
-            var assets = new[] {asset1, asset2, asset3};
 
+            WriteLine($"Assets {string.Join(", ", assets.Select(a => a.Id).ToArray())} were registered. Awaiting approval by DSO. ");
+        }
+
+        public async Task AssignAssetsToGrid()
+        {
+            var assets = await Client.Assets.GetByTemplate(new Asset {OperatedByOrganizationId = Organization.Id});
             var gridNodes = await Client.GridNodes.GetByTemplate();
-
+            const string mpid = "12345678910";
+            
             // Assign assets to a MPID
-            foreach (var asset in assets)
+            foreach (var asset in assets.Items)
             {
+                // TODO: Check that they are not already assigned to a grid node
                 await Client.AssetGridAssignments.Create(new AssetGridAssignment
                 {
                     AssetId = asset.Id,
@@ -71,8 +59,20 @@ namespace ConsoleApplication
                     GridNodeId = gridNodes.Items.First().Id,
                 });
             }
+        }
 
-            WriteLine($"Assets {string.Join(", ", assets.Select(a => a.Id).ToArray())} were registered. Awaiting approval by DSO. ");
+        private async Task<Asset> CreateAssetIfNotExists(string name, AssetType type)
+        {
+            var res = await Client.Assets.GetByTemplate(new Asset {Name = name, OperatedByOrganizationId = Organization.Id});
+            return res.Items.Any()
+                ? res.Items.Single()
+                : await Client.Assets.Create(new Asset
+                {
+                    Name = name,
+                    AssetTypeId = type.Id,
+                    OperatedByOrganizationId = Organization.Id,
+                    RampUpRate = 1, RampDownRate = 1,
+                });
         }
 
         public async Task CreatePortfolio()
@@ -111,9 +111,9 @@ namespace ConsoleApplication
             WriteLine("placing sell order... ");
 
             var assetPortfolios = await Client.AssetPortfolios.GetByTemplate(new AssetPortfolio {ManagedByOrganizationId = Organization?.Id});
-            var assetPortfolio = assetPortfolios.Items.First();
+            var assetPortfolio = assetPortfolios.Items.FirstOrDefault() ?? throw new Exception($"No portfolios found for org {Organization?.Id}");
             var locations = await Client.GridLocations.GetByTemplate();
-            var location = locations.Items.First();
+            var location = locations.Items.FirstOrDefault();
             var markets = await Client.Markets.GetByTemplate();
             // var market = markets.Items.First();
             var market = markets.Items.Single(m => m.Name.StartsWith("Agder")); // TODO: Fix this hardcoding. 
@@ -130,7 +130,7 @@ namespace ConsoleApplication
             {
                 AssetPortfolioId = assetPortfolio.Id,
                 GridNodeId = location.GridNodeId,
-                OwnerOrganizationId = Organization.Id,
+                OwnerOrganizationId = Organization?.Id,
                 MarketId = market.Id,
                 Side = OrderSide.Sell,
                 PriceType = PriceType.Limit,
@@ -238,7 +238,7 @@ namespace ConsoleApplication
 
         private async Task ShowAssets()
         {
-            var assets =await Client.Assets.GetByTemplate(new Asset{OperatedByOrganizationId = Organization.Id});
+            var assets = await Client.Assets.GetByTemplate(new Asset {OperatedByOrganizationId = Organization.Id});
             WriteLine($"Number of assets:  {assets.NumberOfHits}");
             assets.Items.ForEach(i => WriteLine($"  Asset: {i.Id} {i.Name}"));
         }
