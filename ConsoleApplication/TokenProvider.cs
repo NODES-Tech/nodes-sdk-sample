@@ -34,7 +34,7 @@ namespace ConsoleApplication
             TokenResponse response = await _httpClient.RequestClientCredentialsTokenAsync(req, cancellationToken);
             if (IsNullOrEmpty(response.AccessToken) || response.Error != null)
                 throw new Exception(response.Error + "; " + response.ErrorDescription);
-            Console.WriteLine("Aquired new token: " + response.AccessToken);
+            Console.WriteLine("Acquired new token: " + response.AccessToken);
             return new AuthenticationHeaderValue("Bearer", response.AccessToken);
         }
     }

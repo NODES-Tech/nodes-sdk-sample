@@ -8,6 +8,7 @@ using Nodes.API.Http.Client.Support;
 using static System.Console;
 using static System.String;
 
+// ReSharper disable InvertIf
 // ReSharper disable ConvertToConstant.Local
 
 namespace ConsoleApplication
@@ -24,34 +25,39 @@ namespace ConsoleApplication
 
         public Program() =>
             _services = new ServiceCollection()
-                
+
                 // Read appsettings and appsettings. Customize if needed.
-                .AddSingleton<IConfiguration>(BuildConfigurationRoot())  
-                
-                // In cases where the server provides invalid/selfsigned SSL certificates, e.g. localhost, 
-                // add a dummy validator: 
+                .AddSingleton<IConfiguration>(BuildConfigurationRoot())
+
+                // In cases where the server provides invalid/self-signed SSL certificates, e.g. localhost 
+                // or certain corporate / educational environments, add a dummy validator: 
                 .AddSingleton<HttpMessageHandler>(
-                    new HttpClientHandler  
+                    new HttpClientHandler
                     {
                         ServerCertificateCustomValidationCallback = (message, certificate2, arg3, arg4) => true
                     })
                 .AddSingleton<HttpClient, HttpClient>()
-                
+
                 // This token provider will get a token from the B2C server, using clientid/secret found in appsettings*.json
                 // We recommend creating a new file appsettings.local.json and adding your values there. 
                 // See TokenProvider for details. 
-                .AddSingleton<ITokenProvider, TokenProvider>() 
+                .AddSingleton<ITokenProvider, TokenProvider>()
                 .AddSingleton<HttpUtils>()
-                
+
                 // The APIUrl is specified in appsettings.json or appsettings.local.json
                 // The rest of the parameters to NodesClient will be fetched from the service collection on instantiation. 
-                .AddSingleton(x => ActivatorUtilities.CreateInstance<NodesClient>(x, x.GetRequiredService<IConfiguration>().GetSection("APIUrl").Value))
+                .AddSingleton(x =>
+                    ActivatorUtilities.CreateInstance<NodesClient>(x,
+                        x.GetRequiredService<IConfiguration>().GetSection("APIUrl").Value))
                 .AddSingleton<DSO>()
                 .AddSingleton<FSP>()
                 .AddSingleton<DeviceDemo>()
                 .BuildServiceProvider();
 
-        private bool _pauseAtEnd = true; // Should be default true, in non-CI scenarios, so that double-clicking a batch file keeps the result visible
+        private bool
+            _pauseAtEnd =
+                true; // Should be default true, in non-CI scenarios, so that double-clicking a batch file keeps the result visible
+
         private readonly ServiceProvider _services;
 
         public (string name, Action action)[] Operations() => new (string name, Action action)[]
@@ -62,7 +68,8 @@ namespace ConsoleApplication
             ("dso-grid", () => _services.GetRequiredService<DSO>().CreateGridNodes().GetAwaiter().GetResult()),
             ("fsp-show", () => _services.GetRequiredService<FSP>().GetInfo().GetAwaiter().GetResult()),
             ("fsp-assets", () => _services.GetRequiredService<FSP>().CreateAssets().GetAwaiter().GetResult()),
-            ("fsp-gridassignments", () => _services.GetRequiredService<FSP>().AssignAssetsToGrid().GetAwaiter().GetResult()),
+            ("fsp-gridassignments",
+                () => _services.GetRequiredService<FSP>().AssignAssetsToGrid().GetAwaiter().GetResult()),
             ("fsp-portfolios", () => _services.GetRequiredService<FSP>().CreatePortfolio().GetAwaiter().GetResult()),
             ("fsp-order", () => _services.GetRequiredService<FSP>().PlaceSellOrder().GetAwaiter().GetResult()),
             ("dso-order", () => _services.GetRequiredService<DSO>().PlaceBuyOrder().GetAwaiter().GetResult()),
@@ -86,6 +93,7 @@ namespace ConsoleApplication
             if (!todo.Any() || args.Any(a => Operations().All(p => p.name != a)))
             {
                 ShowHelp();
+                _services.GetRequiredService<FSP>().GetInfo().GetAwaiter().GetResult();                
                 return;
             }
 

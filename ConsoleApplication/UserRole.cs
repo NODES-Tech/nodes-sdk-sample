@@ -20,49 +20,49 @@ namespace ConsoleApplication
         protected UserRole(NodesClient client)
         {
             Client = client;
-            CreateUserAndLogin().GetAwaiter().GetResult();
+            // CreateUserAndLogin().GetAwaiter().GetResult();
             FetchBasicInfo().GetAwaiter().GetResult();
         }
 
 
-        public virtual User UserData() =>
-            new User
-            {
-                Email = $"nodes-user-{GetType().Name}@example.com",
-                LoginHandle = "nodes-user@example.com",
-                FamilyName = $"{GetType().Name} USER",
-                GivenName = "NODES",
-            };
+        // public virtual User UserData() =>
+        //     new User
+        //     {
+        //         Email = $"nodes-user-{GetType().Name}@example.com",
+        //         LoginHandle = "nodes-user@example.com",
+        //         FamilyName = $"{GetType().Name} USER",
+        //         GivenName = "NODES",
+        //     };
 
-        public virtual async Task<User> CreateUserAndLogin()
-        {
-            var userRes = await Client.Users.GetByTemplate(new User {Email = UserData().Email});
-            var user = userRes.Items.Any() ? userRes.Items.FirstOrDefault() : await CreateUser();
-            return user;
-        }
-
-        private async Task<User> CreateUser()
-        {
-            var user = await Client.Users.Create(UserData());
-            var organization = await Client.Organizations.Create(new Organization
-            {
-                Name = $"Nodes Test {GetType().Name} Organization",
-                CountryId = "NO",
-            });
-            var subscription = await Client.Subscriptions.Create(new Subscription
-            {
-                OwnerOrganizationId = organization.Id,
-                SubscriptionType = SubscriptionType.DSO,
-            });
-            var permissionSets = await Client.PermissionSets.GetByTemplate();
-            var membership = await Client.Memberships.Create(new Membership
-            {
-                SubscriptionId = subscription.Id,
-                UserId = user.Id,
-                PermissionSetId = permissionSets.Items.First().Id,
-            });
-            return user;
-        }
+        // public virtual async Task<User> CreateUserAndLogin()
+        // {
+        //     var userRes = await Client.Users.GetByTemplate(new User {Email = UserData().Email});
+        //     var user = userRes.Items.Any() ? userRes.Items.FirstOrDefault() : await CreateUser();
+        //     return user;
+        // }
+        //
+        // private async Task<User> CreateUser()
+        // {
+        //     var user = await Client.Users.Create(UserData());
+        //     var organization = await Client.Organizations.Create(new Organization
+        //     {
+        //         Name = $"Nodes Test {GetType().Name} Organization",
+        //         CountryId = "NO",
+        //     });
+        //     var subscription = await Client.Subscriptions.Create(new Subscription
+        //     {
+        //         OwnerOrganizationId = organization.Id,
+        //         SubscriptionType = SubscriptionType.DSO,
+        //     });
+        //     var permissionSets = await Client.PermissionSets.GetByTemplate();
+        //     var membership = await Client.Memberships.Create(new Membership
+        //     {
+        //         SubscriptionId = subscription.Id,
+        //         UserId = user.Id,
+        //         PermissionSetId = permissionSets.Items.First().Id,
+        //     });
+        //     return user;
+        // }
 
         protected async Task FetchBasicInfo()
         {

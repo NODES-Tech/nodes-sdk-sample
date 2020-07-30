@@ -191,8 +191,8 @@ namespace ConsoleApplication
         {
             WriteLine("List FSP info");
 
-            await ShowOrders();
             await ShowUsers();
+            await ShowOrders();
             await ShowTrades();
             await ShowPortfolios();
             await ShowAssets();

@@ -23,7 +23,7 @@ namespace ConsoleApplication
             // await DisplayGridNodeTree();
             // return; 
             
-            WriteLine("Setting up a gride node structure");
+            WriteLine("Setting up a grid node structure");
             var priceArea = await Client.PriceAreas.Create(new PriceArea
             {
                 Name = "Sample price area",
