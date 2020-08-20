@@ -209,7 +209,7 @@ namespace ConsoleApplication
             };
             var search = new TradeSearch
             {
-                Created = new DateTimeRange(DateTimeOffset.UtcNow.AddHours(-24), null),
+                PeriodFrom = new DateTimeRange(DateTimeOffset.UtcNow.AddHours(-24), null),
             };
             var tradeRes = await Client.Trades.GetByTemplate(tradeTemplate, searchOptions, search);
             WriteLine($"Number of trades:  {tradeRes.Items.Count} / {tradeRes.NumberOfHits}");
