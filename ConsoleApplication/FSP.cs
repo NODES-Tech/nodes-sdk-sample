@@ -231,9 +231,20 @@ namespace ConsoleApplication
                 await Client.AssetPortfolios.GetByTemplate(new AssetPortfolio
                 {
                     ManagedByOrganizationId = Organization.Id,
+                }, new SearchOptions()
+                {
+                    Embeddings =
+                    {
+                        Relations.AssetPortfolioAssignment,
+                        SearchUtil.CombineEmbedSpecs(Relations.AssetPortfolioAssignment, Relations.AssetGridAssignment)
+                    }
                 });
             WriteLine($"Number of asset portfolios:  {portfolioRes.NumberOfHits}");
             portfolioRes.Items.ForEach(i => WriteLine($"  Asset portfolio: {i.Id} {i.Name}"));
+            portfolioRes.Embedded.OfType<AssetGridAssignment>().ToList()
+                .ForEach((assetGridAssignment) =>
+                    WriteLine(
+                        $"Asset {assetGridAssignment.AssetId} has asset grid assignment {assetGridAssignment.Id} with mpid:  {assetGridAssignment.MPID}"));
         }
 
         private async Task ShowAssets()
