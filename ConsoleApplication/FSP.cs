@@ -191,7 +191,6 @@ namespace ConsoleApplication
         {
             WriteLine("List FSP info");
 
-            await ShowUsers();
             await ShowOrders();
             await ShowTrades();
             await ShowPortfolios();
@@ -252,13 +251,6 @@ namespace ConsoleApplication
             var assets = await Client.Assets.GetByTemplate(new Asset {OperatedByOrganizationId = Organization.Id});
             WriteLine($"Number of assets:  {assets.NumberOfHits}");
             assets.Items.ForEach(i => WriteLine($"  Asset: {i.Id} {i.Name}"));
-        }
-
-        private async Task ShowUsers()
-        {
-            var userRes = await Client.Users.GetByTemplate();
-            WriteLine($"Number of users:  {userRes.NumberOfHits}");
-            userRes.Items.ForEach(i => WriteLine("  User: " + i));
         }
 
         public async Task ShowOrders()
