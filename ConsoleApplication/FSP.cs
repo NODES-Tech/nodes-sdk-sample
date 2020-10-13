@@ -54,7 +54,7 @@ namespace ConsoleApplication
                     AssetId = asset.Id,
                     ManagedByOrganizationId = Organization?.Id,
                     OperatedByOrganizationId = Organization?.Id,
-                    SuppliedByOrganizationId = Organization?.Id,
+                    SupplierOrganizationId = Organization?.Id,
                     MPID = mpid,
                     GridNodeId = gridNodes.Items.First().Id,
                 });
