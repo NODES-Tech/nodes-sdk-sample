@@ -34,7 +34,7 @@ namespace ConsoleApplication
                 .AddSingleton<HttpMessageHandler>(
                     new HttpClientHandler
                     {
-                        ServerCertificateCustomValidationCallback = (message, certificate2, arg3, arg4) => true
+                        ServerCertificateCustomValidationCallback = (_, _, _, _) => true
                     })
                 .AddSingleton<HttpClient, HttpClient>()
 
@@ -51,7 +51,6 @@ namespace ConsoleApplication
                         x.GetRequiredService<IConfiguration>().GetSection("APIUrl").Value))
                 .AddSingleton<DSO>()
                 .AddSingleton<FSP>()
-                .AddSingleton<DeviceDemo>()
                 .BuildServiceProvider();
 
         private bool
@@ -74,7 +73,6 @@ namespace ConsoleApplication
             ("fsp-order", () => _services.GetRequiredService<FSP>().PlaceSellOrder().GetAwaiter().GetResult()),
             ("dso-order", () => _services.GetRequiredService<DSO>().PlaceBuyOrder().GetAwaiter().GetResult()),
             ("orders-clear", () => _services.GetRequiredService<FSP>().ClearOrders().GetAwaiter().GetResult()),
-            ("devices-demo", () => _services.GetRequiredService<DeviceDemo>().Start()),
         };
 
         public void RunDsoFspDemo()

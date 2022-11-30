@@ -113,10 +113,10 @@ namespace ConsoleApplication
             var assetPortfolios = await Client.AssetPortfolios.GetByTemplate(new AssetPortfolio {ManagedByOrganizationId = Organization?.Id});
             var assetPortfolio = assetPortfolios.Items.FirstOrDefault() ?? throw new Exception($"No portfolios found for org {Organization?.Id}");
             var locations = await Client.GridLocations.GetByTemplate();
-            var location = locations.Items.FirstOrDefault();
+            var location = locations.Items.First();
             var markets = await Client.Markets.GetByTemplate();
             // var market = markets.Items.First();
-            var market = markets.Items.Single(m => m.Name.StartsWith("Agder")); // TODO: Fix this hardcoding. 
+            var market = markets.Items.Single(m => m.Name.StartsWith("Agder")); // TODO: Fix this hard coding. 
 
             var now = DateTimeOffset.UtcNow;
             now = now.Subtract(TimeSpan.FromMilliseconds(now.Millisecond));
@@ -137,15 +137,16 @@ namespace ConsoleApplication
                 RegulationType = RegulationType.Down,
                 QuantityType = QuantityType.Power,
                 Quantity = (decimal?) 13.3,
-                RebalancePrice = (decimal?) 13.3,
-                FlexMarginPrice = (decimal?) 26.6,
-                UnitPrice = null, // Leave this out for Power markets
+                // RebalancePrice = (decimal?) 13.3,
+                // FlexMarginPrice = (decimal?) 26.6,
+                // UnitPrice = null, // Leave this out for Power markets
+                UnitPrice = (decimal?) 26.6,
                 FillType = FillType.Normal,
                 ValidTo = start,
                 PeriodFrom = start,
                 PeriodTo = end,
                 BlockSizeInSeconds = market.MinimumBlockSizeInSeconds,
-                MaxBlocks = 1, AdjacentBlocks = 1, RestBlocks = 0,
+                MaxBlocks = 1, MinAdjacentBlocks = 1, RestBlocks = 0,
             });
             WriteLine($"Sell order {order.Id} created");
         }
@@ -199,23 +200,20 @@ namespace ConsoleApplication
 
         private async Task ShowTrades()
         {
-            var tradeTemplate = new Trade();
             var searchOptions = new SearchOptions
             {
-                Take = 100,
+                Take = 100, // This is the default value
                 Embeddings = {Relations.Organization, Relations.AssetPortfolio, Relations.GridNode},
                 OrderBy = {nameof(Trade.LastModified)}
             };
-            var search = new TradeSearch
-            {
-                PeriodFrom = new DateTimeRange(DateTimeOffset.UtcNow.AddHours(-24), null),
-            };
-            var tradeRes = await Client.Trades.GetByTemplate(tradeTemplate, searchOptions, search);
+            var search = IFilter.Filters(
+                IFilter.KVP(nameof(Trade.PeriodFrom), new DateTimeRange(DateTimeOffset.UtcNow.AddHours(-24), null)));
+            var tradeRes = await Client.Trades.Search(search, searchOptions);
             WriteLine($"Number of trades:  {tradeRes.Items.Count} / {tradeRes.NumberOfHits}");
             foreach (var trade in tradeRes.Items)
             {
                 var org = tradeRes.Embedded.SingleOrDefault(x => x.Id == trade.OwnerOrganizationId);
-                var gn = tradeRes.Embedded.OfType<GridNode>().SingleOrDefault(x => x.Id == trade.GridNodeId);
+                var gn = tradeRes.Embedded.OfType<GridNode>().Single(x => x.Id == trade.GridNodeId);
                 var ap = tradeRes.Embedded.SingleOrDefault(x => x.Id == trade.AssetPortfolioId);
                 // NB: Asset portfolio is not relevant/visible for BUY orders. 
                 WriteLine(

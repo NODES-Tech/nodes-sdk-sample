@@ -110,14 +110,14 @@ namespace ConsoleApplication
                 RegulationType = RegulationType.Down,
 
                 BlockSizeInSeconds = sellOrder.BlockSizeInSeconds,
-                MaxBlocks = 1,AdjacentBlocks = 1, RestBlocks = 0,
+                MaxBlocks = 1,MinAdjacentBlocks = 1, RestBlocks = 0,
 
                 // Here we specify a price, which is the upper limit of what we are willing to pay. 
                 // An alternative is to specify price type Market. In that case UnitPrice is not used
                 // and there will be no limit to the price we are willing to pay. 
                 UnitPrice = sellOrder.UnitPrice,
-                FlexMarginPrice = sellOrder.FlexMarginPrice,
-                RebalancePrice = sellOrder.RebalancePrice,
+                // FlexMarginPrice = sellOrder.FlexMarginPrice,
+                // RebalancePrice = sellOrder.RebalancePrice,
                 PriceType = PriceType.Limit,
             });
 

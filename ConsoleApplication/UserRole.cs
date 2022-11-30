@@ -1,9 +1,6 @@
 using System;
 using System.Linq;
-using System.Net.Http;
 using System.Threading.Tasks;
-using Microsoft.Extensions.Configuration;
-using Nodes.API.Enums;
 using Nodes.API.Http.Client.Support;
 using Nodes.API.Models;
 
@@ -12,10 +9,8 @@ namespace ConsoleApplication
     public abstract class UserRole
     {
         protected readonly NodesClient Client;
-        protected Membership? Membership;
-        protected User? User;
-        protected Subscription? Subscription;
-        protected Organization? Organization;
+        protected User User;
+        protected Organization Organization;
 
         protected UserRole(NodesClient client)
         {
@@ -68,7 +63,7 @@ namespace ConsoleApplication
         {
             User = Client.Users.GetCurrentUser().GetAwaiter().GetResult() ?? throw new Exception("Authentication: TBA");
             var memberships = await Client.Memberships.GetByTemplate(new Membership {UserId = User.Id});
-            Membership = memberships.Items.FirstOrDefault() ?? throw new Exception($"No memberships for user {User}");
+            // Membership = memberships.Items.FirstOrDefault() ?? throw new Exception($"No memberships for user {User}");
             Organization = await Client.Organizations.GetById(memberships.Items.First().OrganizationId);
         }
     }
