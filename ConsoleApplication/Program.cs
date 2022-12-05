@@ -53,9 +53,8 @@ namespace ConsoleApplication
                 .AddSingleton<FSP>()
                 .BuildServiceProvider();
 
-        private bool
-            _pauseAtEnd =
-                true; // Should be default true, in non-CI scenarios, so that double-clicking a batch file keeps the result visible
+        // This setting should be default true, in non-CI scenarios, so that double-clicking a batch file keeps the result visible
+        private bool _pauseAtEnd = true;
 
         private readonly ServiceProvider _services;
 
@@ -91,15 +90,16 @@ namespace ConsoleApplication
             if (!todo.Any() || args.Any(a => Operations().All(p => p.name != a)))
             {
                 ShowHelp();
-                _services.GetRequiredService<FSP>().GetInfo().GetAwaiter().GetResult();                
-                return;
+            }
+            else
+            {
+                WriteLine($"   Your commands: {Join(" ", args)}. Run with argument 'help' to see list of options. ");
+                foreach (var oper in todo)
+                {
+                    oper.action();
+                }
             }
 
-            WriteLine($"   Your commands: {Join(" ", args)}. Run with argument 'help' to see list of options. ");
-            foreach (var oper in todo)
-            {
-                oper.action();
-            }
 
             if (_pauseAtEnd)
             {
