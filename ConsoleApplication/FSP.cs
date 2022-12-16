@@ -112,11 +112,20 @@ namespace ConsoleApplication
             {
                 var assignments = await Client.AssetGridAssignments.GetByTemplate(new AssetGridAssignment { AssetId = asset.Id });
                 var assignment = assignments.Items.Single();
-                await Client.AssetPortfolioAssignments.Create(new AssetPortfolioAssignment
+
+                try
                 {
-                    AssetPortfolioId = portfolio.Id,
-                    AssetGridAssignmentId = assignment.Id,
-                });
+                    await Client.AssetPortfolioAssignments.Create(new AssetPortfolioAssignment
+                    {
+                        AssetPortfolioId = portfolio.Id,
+                        AssetGridAssignmentId = assignment.Id,
+                    });
+                    WriteLine("Added " + asset + " to portfolio " + portfolio);
+                }
+                catch (Exception e)
+                {
+                    WriteLine("Failed to added " + asset + " to portfolio " + portfolio + ": " + e.Message[..100]);
+                }
             }
 
             WriteLine($"{assets.Items.Count} assets were added to asset portfolio {portfolio.Id}.");
@@ -126,12 +135,20 @@ namespace ConsoleApplication
 
         public async Task PlaceSellOrder()
         {
-            var assetPortfolios = await Client.AssetPortfolios.GetByTemplate(new AssetPortfolio { ManagedByOrganizationId = Organization?.Id });
-            var assetPortfolio = assetPortfolios.Items.FirstOrDefault() ?? throw new Exception($"No portfolios found for org {Organization?.Id}");
-            
+            var assetPortfolios = await Client.AssetPortfolios.GetByTemplate(new AssetPortfolio
+            {
+                ManagedByOrganizationId = Organization?.Id,
+                Status = Status.Active,
+            });
+            var assetPortfolio = assetPortfolios.Items
+                .FirstOrDefault(ap => ap.GridNodeId != null) ?? throw new Exception($"No portfolios found for org {Organization?.Id}");
+
+            if (assetPortfolio.GridNodeId == null)
+                throw new Exception(" Active portfolio without grid node??");
+
             WriteLine("placing sell order using portfolio " + assetPortfolio + " on grid node " + assetPortfolio.GridNodeId);
 
-            
+
             var markets = await Client.Markets.GetByTemplate(new Market { Name = DSO.MarketName });
             var market = markets.Items.Single();
 

@@ -169,11 +169,11 @@ namespace ConsoleApplication
                     aga.Status = Status.Active;
                     aga.GridNodeId = gridNode.Id;
                     await Client.AssetGridAssignments.Update(aga);
-                    WriteLine("Approved asset grid assignment " + aga);
+                    WriteLine("Approved asset grid assignment " + aga.Id);
                 }
                 catch (Exception e)
                 {
-                    WriteLine("Failed to approve asset grid assignment " + aga);
+                    WriteLine("Failed to approve asset grid assignment " + aga.Id + ": " + e.Message[..100]);
                 }
             }
 
