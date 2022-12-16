@@ -15,6 +15,8 @@ namespace ConsoleApplication
 {
     public class FSP : UserRole
     {
+        public const string AssetNamePrefix = "test-asset-";
+
         public FSP(NodesClient client) : base(client)
         {
         }
@@ -27,12 +29,12 @@ namespace ConsoleApplication
             var assetTypes = await Client.AssetTypes.GetByTemplate();
 
 
-            var assetNames = Enumerable.Range(1, 3).Select(i => "asset" + i).ToArray();
+            var assetNames = Enumerable.Range(1, 3).Select(i => AssetNamePrefix + i).ToArray();
 
 
             WriteLine($"creating {assetNames.Length} assets (if they dont' exist yet)...");
             var assets = assetNames
-                .Select( name =>  CreateAssetIfNotExists(name, assetTypes.Items.FirstOrDefault()).GetAwaiter().GetResult())
+                .Select(name => CreateAssetIfNotExists(name, assetTypes.Items.FirstOrDefault()).GetAwaiter().GetResult())
                 .ToArray();
 
 
@@ -41,14 +43,23 @@ namespace ConsoleApplication
 
         public async Task AssignAssetsToGrid()
         {
-            var assets = await Client.Assets.GetByTemplate(new Asset {OperatedByOrganizationId = Organization.Id});
-            var gridNodes = await Client.GridNodes.GetByTemplate();
+            var assets = await Client.Assets.GetByTemplate(new Asset { OperatedByOrganizationId = Organization.Id });
             const string mpid = "12345678910";
-            
+
             // Assign assets to a MPID
             foreach (var asset in assets.Items)
             {
-                // TODO: Check that they are not already assigned to a grid node
+                var agas = await Client.AssetGridAssignments.GetByTemplate(new AssetGridAssignment
+                {
+                    AssetId = asset.Id,
+                });
+                if (agas.Items.Any())
+                {
+                    WriteLine("Asset " + asset + " already had an asset grid assignment");
+                    continue;
+                }
+
+                WriteLine("Assigning mpid to " + asset);
                 await Client.AssetGridAssignments.Create(new AssetGridAssignment
                 {
                     AssetId = asset.Id,
@@ -56,23 +67,30 @@ namespace ConsoleApplication
                     OperatedByOrganizationId = Organization?.Id,
                     SupplierOrganizationId = Organization?.Id,
                     MPID = mpid,
-                    GridNodeId = gridNodes.Items.First().Id,
+                    // GridNodeId = gridNode.Id,
                 });
             }
         }
 
         private async Task<Asset> CreateAssetIfNotExists(string name, AssetType type)
         {
-            var res = await Client.Assets.GetByTemplate(new Asset {Name = name, OperatedByOrganizationId = Organization.Id});
-            return res.Items.Any()
-                ? res.Items.Single()
-                : await Client.Assets.Create(new Asset
+            var res = await Client.Assets.GetByTemplate(new Asset { Name = name, OperatedByOrganizationId = Organization.Id });
+            if (res.Items.Any())
+            {
+                WriteLine("Asset already exists: " + name);
+                return res.Items.Single();
+            }
+            else
+            {
+                WriteLine("Creating asset " + name);
+                return await Client.Assets.Create(new Asset
                 {
                     Name = name,
                     AssetTypeId = type.Id,
                     OperatedByOrganizationId = Organization.Id,
                     RampUpRate = 1, RampDownRate = 1,
                 });
+            }
         }
 
         public async Task CreatePortfolio()
@@ -92,7 +110,7 @@ namespace ConsoleApplication
             });
             foreach (var asset in assets.Items)
             {
-                var assignments = await Client.AssetGridAssignments.GetByTemplate(new AssetGridAssignment {AssetId = asset.Id});
+                var assignments = await Client.AssetGridAssignments.GetByTemplate(new AssetGridAssignment { AssetId = asset.Id });
                 var assignment = assignments.Items.Single();
                 await Client.AssetPortfolioAssignments.Create(new AssetPortfolioAssignment
                 {
@@ -108,15 +126,14 @@ namespace ConsoleApplication
 
         public async Task PlaceSellOrder()
         {
-            WriteLine("placing sell order... ");
-
-            var assetPortfolios = await Client.AssetPortfolios.GetByTemplate(new AssetPortfolio {ManagedByOrganizationId = Organization?.Id});
+            var assetPortfolios = await Client.AssetPortfolios.GetByTemplate(new AssetPortfolio { ManagedByOrganizationId = Organization?.Id });
             var assetPortfolio = assetPortfolios.Items.FirstOrDefault() ?? throw new Exception($"No portfolios found for org {Organization?.Id}");
-            var locations = await Client.GridLocations.GetByTemplate();
-            var location = locations.Items.First();
-            var markets = await Client.Markets.GetByTemplate();
-            // var market = markets.Items.First();
-            var market = markets.Items.Single(m => m.Name.StartsWith("Agder")); // TODO: Fix this hard coding. 
+            
+            WriteLine("placing sell order using portfolio " + assetPortfolio + " on grid node " + assetPortfolio.GridNodeId);
+
+            
+            var markets = await Client.Markets.GetByTemplate(new Market { Name = DSO.MarketName });
+            var market = markets.Items.Single();
 
             var now = DateTimeOffset.UtcNow;
             now = now.Subtract(TimeSpan.FromMilliseconds(now.Millisecond));
@@ -129,18 +146,18 @@ namespace ConsoleApplication
             var order = await Client.Orders.Create(new Order
             {
                 AssetPortfolioId = assetPortfolio.Id,
-                GridNodeId = location.GridNodeId,
+                // GridNodeId = location.GridNodeId,
                 OwnerOrganizationId = Organization?.Id,
                 MarketId = market.Id,
                 Side = OrderSide.Sell,
                 PriceType = PriceType.Limit,
                 RegulationType = RegulationType.Down,
                 QuantityType = QuantityType.Power,
-                Quantity = (decimal?) 13.3,
+                Quantity = (decimal?)13.3,
                 // RebalancePrice = (decimal?) 13.3,
                 // FlexMarginPrice = (decimal?) 26.6,
                 // UnitPrice = null, // Leave this out for Power markets
-                UnitPrice = (decimal?) 26.6,
+                UnitPrice = (decimal?)26.6,
                 FillType = FillType.Normal,
                 ValidTo = start,
                 PeriodFrom = start,
@@ -156,8 +173,8 @@ namespace ConsoleApplication
             WriteLine("fetching list of activated orders");
             var options = new SearchOptions
             {
-                OrderBy = {"Created desc"},
-                Embeddings = {"assetportfolio"},
+                OrderBy = { "Created desc" },
+                Embeddings = { "assetportfolio" },
                 Take = 100,
             };
 
@@ -203,8 +220,8 @@ namespace ConsoleApplication
             var searchOptions = new SearchOptions
             {
                 Take = 100, // This is the default value
-                Embeddings = {Relations.Organization, Relations.AssetPortfolio, Relations.GridNode},
-                OrderBy = {nameof(Trade.LastModified)}
+                Embeddings = { Relations.Organization, Relations.AssetPortfolio, Relations.GridNode },
+                OrderBy = { nameof(Trade.LastModified) }
             };
             var search = IFilter.Filters(
                 IFilter.KVP(nameof(Trade.PeriodFrom), new DateTimeRange(DateTimeOffset.UtcNow.AddHours(-24), null)));
@@ -246,7 +263,7 @@ namespace ConsoleApplication
 
         private async Task ShowAssets()
         {
-            var assets = await Client.Assets.GetByTemplate(new Asset {OperatedByOrganizationId = Organization.Id});
+            var assets = await Client.Assets.GetByTemplate(new Asset { OperatedByOrganizationId = Organization.Id });
             WriteLine($"Number of assets:  {assets.NumberOfHits}");
             assets.Items.ForEach(i => WriteLine($"  Asset: {i.Id} {i.Name}"));
         }
@@ -256,14 +273,14 @@ namespace ConsoleApplication
             var orders = await Client.Orders.GetByTemplate(new Order(),
                 new SearchOptions
                 {
-                    Embeddings = {"organization"},
+                    Embeddings = { "organization" },
                     Take = 10,
-                    OrderBy = {"lastmodified desc"}
+                    OrderBy = { "lastmodified desc" }
                 });
             WriteLine($"Number of orders:  {orders.NumberOfHits}");
             orders.Items.ForEach(i =>
             {
-                var org = (Organization) orders.Embedded.Single(x => x.Id == i.OwnerOrganizationId);
+                var org = (Organization)orders.Embedded.Single(x => x.Id == i.OwnerOrganizationId);
                 WriteLine(
                     $"  {i.Side} Order: {i.Status} {i.RegulationType} {i.PeriodFrom}-{i.PeriodTo}, org={org.Id} {org.Name}"
                 );

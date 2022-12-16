@@ -1,12 +1,10 @@
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Nodes.API.Enums;
 using Nodes.API.Http.Client.Support;
 using Nodes.API.Models;
-using Nodes.API.Queries;
 using Nodes.API.Support;
 using static System.Console;
 
@@ -14,73 +12,92 @@ namespace ConsoleApplication
 {
     public class DSO : UserRole
     {
+        public const string RootName = "DSORoot3";
+        public const string MarketName = "Demo market3";
+
         public DSO(NodesClient client) : base(client)
         {
         }
 
-        public async Task CreateGridNodes()
+        public async Task CreateGridNodesIfNeeded()
         {
-            // await DisplayGridNodeTree();
-            // return; 
-            
-            WriteLine("Setting up a grid node structure");
-            var priceArea = await Client.PriceAreas.Create(new PriceArea
+            var gridNodes = await Client.GridNodes.GetByTemplate(new GridNode { Name = RootName });
+            if (gridNodes.Items.Any())
             {
-                Name = "Sample price area",
-            });
-            
-            var rootNode = await Client.GridNodes.Create(new GridNode
+                WriteLine("Using this grid hierarchy: ");
+                await DisplayGridNodeTree(gridNodes.Items.Single());
+            }
+            else
             {
-                Name = "DSORoot",
-                OperatedByOrganizationId = Organization.Id,
-                PriceAreaId = priceArea.Id,
-                Location = Coordinate.ParseSingleCoordinate("123, 234")
-            });
+                WriteLine("Setting up a grid node structure");
+                var priceAreas = await Client.PriceAreas.GetByTemplate();
+                var priceArea = priceAreas.Items.First();
 
-            var substation = await Client.GridNodes.AddLinkedGridNode(rootNode.Id, new GridNode
-            {
-                Name = "Substation 1",
-                OperatedByOrganizationId = Organization?.Id,
-                PriceAreaId = priceArea.Id,
-                Location = Coordinate.ParseSingleCoordinate("123, 234")
-            });
+                WriteLine("Using price area " + priceArea);
 
-            var secondarySubstation = await Client.GridNodes.AddLinkedGridNode(substation.Id, new GridNode
-            {
-                Name = "Secondary Substation 1",
-                OperatedByOrganizationId = Organization?.Id,
-                PriceAreaId = priceArea.Id,
-                Location = Coordinate.ParseSingleCoordinate("123, 234")
-            });
-            
-            
-            WriteLine("Created the following grid node structure: ");
-            await DisplayGridNodeTree();
-            
+                var rootNode = await Client.GridNodes.Create(new GridNode
+                {
+                    Name = RootName,
+                    OperatedByOrganizationId = Organization.Id,
+                    PriceAreaId = priceArea.Id,
+                    Location = Coordinate.ParseSingleCoordinate("60, 10")
+                });
 
-            WriteLine("creating a flexibility POWER market... ");
-            var market = await Client.Markets.Create(new Market
-            {
-                Name = "Demo market",
-                CurrencyId = "NOK",
-                QuantityType = QuantityType.Power,
-                OwnerOrganizationId = Organization?.Id,
-            });
+                var substation = await Client.GridNodes.AddLinkedGridNode(rootNode.Id, new GridNode
+                {
+                    Name = "Substation 1",
+                    OperatedByOrganizationId = Organization?.Id,
+                    PriceAreaId = priceArea.Id,
+                    Location = Coordinate.ParseSingleCoordinate("60, 11")
+                });
 
-            WriteLine("marking congested nodes / Creating a grid location / open order books");
-            var gridLocation = await Client.GridNodes.OpenGridNodeForTrade(substation.Id, market.Id);
+                var secondarySubstation = await Client.GridNodes.AddLinkedGridNode(substation.Id, new GridNode
+                {
+                    Name = "Secondary Substation 1",
+                    OperatedByOrganizationId = Organization?.Id,
+                    PriceAreaId = priceArea.Id,
+                    Location = Coordinate.ParseSingleCoordinate("60, 12")
+                });
 
-            WriteLine($"Done! Awaiting orders on grid node {substation.Id}, market id {market.Id}, grid location {gridLocation.Id}");
+
+                WriteLine("Created the following grid node structure: ");
+                await DisplayGridNodeTree(rootNode);
+
+
+                WriteLine("creating a flexibility POWER market... ");
+                var market = await Client.Markets.Create(new Market
+                {
+                    Name = MarketName,
+                    CurrencyId = "NOK",
+                    TimeZone = "CET",
+                    QuantityType = QuantityType.Power,
+                    OwnerOrganizationId = Organization?.Id,
+                });
+
+                WriteLine("marking congested nodes / Creating a grid location / open order books");
+                var gridLocation = await Client.GridNodes.OpenGridNodeForTrade(substation.Id, market.Id);
+
+                WriteLine($"Done! Awaiting orders on grid node {substation.Id}, market id {market.Id}, grid location {gridLocation.Id}");
+            }
         }
 
-        public async Task DisplayGridNodeTree()
+        public async Task DisplayGridNodeTree(GridNode rootNode = null)
         {
-            var all = new SearchOptions(100);
-            var gridNodes = await Client.GridNodes.GetByTemplate(null, all);
-            var gridLinks = await Client.GridNodeLinks.GetByTemplate(null, all);
-            var gridLocations = await Client.GridLocations.GetByTemplate(null, all);
+            var tree = await Client.GridNodes.GetGrid();
+            foreach (var root in tree.Where(n => rootNode == null || rootNode.Id == n.Id))
+            {
+                LogToConsole(root, 0);
+            }
+        }
 
-            DisplayGridNodeTree(gridNodes.Items, gridLinks.Items, gridLocations.Items);
+        private void LogToConsole(TreeNode node, int level)
+        {
+            var prefix = new string[level].Select(c => "--").JoinToString("") + "> ";
+            WriteLine(prefix + node.Name);
+            foreach (var child in node.Children)
+            {
+                LogToConsole(child, level + 1);
+            }
         }
 
         public async Task PlaceBuyOrder()
@@ -110,7 +127,7 @@ namespace ConsoleApplication
                 RegulationType = RegulationType.Down,
 
                 BlockSizeInSeconds = sellOrder.BlockSizeInSeconds,
-                MaxBlocks = 1,MinAdjacentBlocks = 1, RestBlocks = 0,
+                MaxBlocks = 1, MinAdjacentBlocks = 1, RestBlocks = 0,
 
                 // Here we specify a price, which is the upper limit of what we are willing to pay. 
                 // An alternative is to specify price type Market. In that case UnitPrice is not used
@@ -141,70 +158,82 @@ namespace ConsoleApplication
 
         public async Task ApproveAssets()
         {
-            var unapprovedAssets = await Client.Assets.GetByTemplate(new Asset {Status = Status.Pending});
-            foreach (var asset in unapprovedAssets.Items)
+            var unapprovedAssets = await Client.AssetGridAssignments.GetByTemplate(new AssetGridAssignment { Status = Status.Pending });
+            WriteLine("Approving " + unapprovedAssets.Items.Count + " assets");
+            var gridNodes = await Client.GridNodes.GetByTemplate(new GridNode { Name = RootName });
+            var gridNode = gridNodes.Items.Single();
+            foreach (var aga in unapprovedAssets.Items)
             {
-                asset.Status = Status.Active;
-                await Client.Assets.Update(asset);
+                try
+                {
+                    aga.Status = Status.Active;
+                    aga.GridNodeId = gridNode.Id;
+                    await Client.AssetGridAssignments.Update(aga);
+                    WriteLine("Approved asset grid assignment " + aga);
+                }
+                catch (Exception e)
+                {
+                    WriteLine("Failed to approve asset grid assignment " + aga);
+                }
             }
 
             WriteLine($"{unapprovedAssets.Items.Count} assets were approved / activated");
         }
 
 
-        public static void DisplayGridNodeTree(List<GridNode> nodes, List<GridNodeLink> links, List<GridLocation> gridLocationsItems)
-        {
-            var roots = BuildForest(nodes, links);
+        // public static void DisplayGridNodeTree(List<GridNode> nodes, List<GridNodeLink> links, List<GridLocation> gridLocationsItems)
+        // {
+        //     var roots = BuildForest(nodes, links);
+        //
+        //     foreach (var root in roots)
+        //     {
+        //         root.Traverse((gn, d) =>
+        //         {
+        //             var prefix = Enumerable.Range(0, d).Select(_ => " ").JoinToString("");
+        //             var gridLocation = gridLocationsItems.Any(gl => gl.GridNodeId == gn.Id) ? "(Gridlocation)" : "";
+        //             WriteLine($"{prefix}{gn.Name} {gridLocation}");
+        //         });
+        //         WriteLine();
+        //     }
+        // }
 
-            foreach (var root in roots)
-            {
-                root.Traverse((gn, d) =>
-                {
-                    var prefix = Enumerable.Range(0, d).Select(_ => " ").JoinToString("");
-                    var gridLocation = gridLocationsItems.Any(gl => gl.GridNodeId == gn.Id) ? "(Gridlocation)" : "";
-                    WriteLine($"{prefix}{gn.Name} {gridLocation}");
-                });
-                WriteLine();
-            }
-        }
-
-        public static List<TreeNode<GridNode>> BuildForest(List<GridNode> nodes, List<GridNodeLink> links) =>
-            nodes
-                .Where(node => links.All(gl => gl.TargetGridNodeId != node.Id))
-                .Select(gn => new TreeNode<GridNode>(gn))
-                .Select(gn => AddChildrenRecursively(gn, nodes, links))
-                .ToList();
-
-        public static TreeNode<GridNode> AddChildrenRecursively(TreeNode<GridNode> node, List<GridNode> nodes, List<GridNodeLink> links)
-        {
-            links
-                .Where( l => nodes.Any(n => n.Id == l.TargetGridNodeId)) // Exclude some incorrect data, should not be needed normally
-                .Where(l => l.SourceGridNodeId == node.Value.Id)
-                .Select(l => nodes.SingleOrDefault(n => n.Id == l.TargetGridNodeId) ?? throw new Exception("Link target node not found: " + l.TargetGridNodeId))
-                .Select(node.AddChild)
-                .ToList()
-                .ForEach(child => AddChildrenRecursively(child, nodes, links));
-            return node;
-        }
-
-
-        public static void TestTree()
-        {
-            var nodes = new[] {"A", "A.A", "A.A.A", "A.A.B", "A.B", "B"}
-                .Select(s => new GridNode {Id = s, Name = s});
-
-            var links = new List<GridNodeLink>
-            {
-                new GridNodeLink {SourceGridNodeId = "A", TargetGridNodeId = "A.A"},
-                new GridNodeLink {SourceGridNodeId = "A", TargetGridNodeId = "A.B"},
-                new GridNodeLink {SourceGridNodeId = "A.A", TargetGridNodeId = "A.A.A"},
-                new GridNodeLink {SourceGridNodeId = "A.A", TargetGridNodeId = "A.A.B"},
-            };
-
-            var locations = new[] {"A", "A.A", "A.A.B"}
-                .Select(s => new GridLocation {Id = s, GridNodeId = s});
-
-            DisplayGridNodeTree(nodes.ToList(), links.ToList(), locations.ToList());
-        }
+        // public static List<TreeNode<GridNode>> BuildForest(List<GridNode> nodes, List<GridNodeLink> links) =>
+        //     nodes
+        //         .Where(node => links.All(gl => gl.TargetGridNodeId != node.Id))
+        //         .Select(gn => new TreeNode<GridNode>(gn))
+        //         .Select(gn => AddChildrenRecursively(gn, nodes, links))
+        //         .ToList();
+        //
+        // public static TreeNode<GridNode> AddChildrenRecursively(TreeNode<GridNode> node, List<GridNode> nodes, List<GridNodeLink> links)
+        // {
+        //     links
+        //         .Where( l => nodes.Any(n => n.Id == l.TargetGridNodeId)) // Exclude some incorrect data, should not be needed normally
+        //         .Where(l => l.SourceGridNodeId == node.Value.Id)
+        //         .Select(l => nodes.SingleOrDefault(n => n.Id == l.TargetGridNodeId) ?? throw new Exception("Link target node not found: " + l.TargetGridNodeId))
+        //         .Select(node.AddChild)
+        //         .ToList()
+        //         .ForEach(child => AddChildrenRecursively(child, nodes, links));
+        //     return node;
+        // }
+        //
+        //
+        // public static void TestTree()
+        // {
+        //     var nodes = new[] {"A", "A.A", "A.A.A", "A.A.B", "A.B", "B"}
+        //         .Select(s => new GridNode {Id = s, Name = s});
+        //
+        //     var links = new List<GridNodeLink>
+        //     {
+        //         new GridNodeLink {SourceGridNodeId = "A", TargetGridNodeId = "A.A"},
+        //         new GridNodeLink {SourceGridNodeId = "A", TargetGridNodeId = "A.B"},
+        //         new GridNodeLink {SourceGridNodeId = "A.A", TargetGridNodeId = "A.A.A"},
+        //         new GridNodeLink {SourceGridNodeId = "A.A", TargetGridNodeId = "A.A.B"},
+        //     };
+        //
+        //     var locations = new[] {"A", "A.A", "A.A.B"}
+        //         .Select(s => new GridLocation {Id = s, GridNodeId = s});
+        //
+        //     DisplayGridNodeTree(nodes.ToList(), links.ToList(), locations.ToList());
+        // }
     }
 }
