@@ -6,9 +6,8 @@ the DotNet SDK for DotNet.
 Also provides some sample use cases for: 
  - FSPs (Flexibility Service Providers): Registering assets and asset portfolios, placing sell orders
  - DSOs (Distributed System Operators): Creating grid topologies, approving assets, placing buy orders
- - Managing asset power states  
 
-Requires DotNet Core 3.1.
+Requires DotNet Core 6 or later.
 
 # How to run the project
 

@@ -5,6 +5,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Rest;
 using Nodes.API.Http.Client.Support;
+using Nodes.API.Models;
 using static System.Console;
 using static System.String;
 
@@ -34,7 +35,7 @@ namespace ConsoleApplication
                 .AddSingleton<HttpMessageHandler>(
                     new HttpClientHandler
                     {
-                        ServerCertificateCustomValidationCallback = (message, certificate2, arg3, arg4) => true
+                        ServerCertificateCustomValidationCallback = (_, _, _, _) => true
                     })
                 .AddSingleton<HttpClient, HttpClient>()
 
@@ -51,12 +52,10 @@ namespace ConsoleApplication
                         x.GetRequiredService<IConfiguration>().GetSection("APIUrl").Value))
                 .AddSingleton<DSO>()
                 .AddSingleton<FSP>()
-                .AddSingleton<DeviceDemo>()
                 .BuildServiceProvider();
 
-        private bool
-            _pauseAtEnd =
-                true; // Should be default true, in non-CI scenarios, so that double-clicking a batch file keeps the result visible
+        // This setting should be default true, in non-CI scenarios, so that double-clicking a batch file keeps the result visible
+        private bool _pauseAtEnd = true;
 
         private readonly ServiceProvider _services;
 
@@ -65,16 +64,18 @@ namespace ConsoleApplication
             ("help", ShowHelp),
             ("skip-pause-at-end", () => _pauseAtEnd = false), // Required for CI/CD pipeline! 
             ("demo", RunDsoFspDemo),
-            ("dso-grid", () => _services.GetRequiredService<DSO>().CreateGridNodes().GetAwaiter().GetResult()),
-            ("fsp-show", () => _services.GetRequiredService<FSP>().GetInfo().GetAwaiter().GetResult()),
+            ("show-grid", () => _services.GetRequiredService<DSO>().DisplayGridNodeTree().GetAwaiter().GetResult()),
+            ("dso-grid", () => _services.GetRequiredService<DSO>().CreateGridNodesIfNeeded().GetAwaiter().GetResult()),
+            // ("fsp-show", () => _services.GetRequiredService<FSP>().GetInfo().GetAwaiter().GetResult()),
             ("fsp-assets", () => _services.GetRequiredService<FSP>().CreateAssets().GetAwaiter().GetResult()),
             ("fsp-gridassignments",
                 () => _services.GetRequiredService<FSP>().AssignAssetsToGrid().GetAwaiter().GetResult()),
+            ("dso-approve-assets", () => _services.GetRequiredService<DSO>().ApproveAssets().GetAwaiter().GetResult()),
             ("fsp-portfolios", () => _services.GetRequiredService<FSP>().CreatePortfolio().GetAwaiter().GetResult()),
+            ("fsp-baselines", () => _services.GetRequiredService<FSP>().CreateBaselines().GetAwaiter().GetResult()),
             ("fsp-order", () => _services.GetRequiredService<FSP>().PlaceSellOrder().GetAwaiter().GetResult()),
             ("dso-order", () => _services.GetRequiredService<DSO>().PlaceBuyOrder().GetAwaiter().GetResult()),
             ("orders-clear", () => _services.GetRequiredService<FSP>().ClearOrders().GetAwaiter().GetResult()),
-            ("devices-demo", () => _services.GetRequiredService<DeviceDemo>().Start()),
         };
 
         public void RunDsoFspDemo()
@@ -93,15 +94,16 @@ namespace ConsoleApplication
             if (!todo.Any() || args.Any(a => Operations().All(p => p.name != a)))
             {
                 ShowHelp();
-                _services.GetRequiredService<FSP>().GetInfo().GetAwaiter().GetResult();                
-                return;
+            }
+            else
+            {
+                WriteLine($"   Your commands: {Join(" ", args)}. Run with argument 'help' to see list of options. ");
+                foreach (var oper in todo)
+                {
+                    oper.action();
+                }
             }
 
-            WriteLine($"   Your commands: {Join(" ", args)}. Run with argument 'help' to see list of options. ");
-            foreach (var oper in todo)
-            {
-                oper.action();
-            }
 
             if (_pauseAtEnd)
             {
