@@ -14,7 +14,7 @@
       <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="6.0.0" />
       <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="6.0.1" />
 
-      <PackageReference Include="Nodes.API.Http.Client" Version="1.6.35" />
+      <PackageReference Include="Nodes.API.Http.Client" Version="1.6.47" />
     </ItemGroup>
 
 
